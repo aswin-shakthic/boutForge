@@ -1,15 +1,16 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { createClub, joinClubWithInvite } from "@boutforge/api";
 import { signupSchema } from "@boutforge/shared";
 import { AuthLayout, AuthLink } from "@/components/AuthLayout";
 import { SupabaseConfigAlert } from "@/components/SupabaseConfigAlert";
 
-export default function SignupPage() {
+function SignupForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const configured = isSupabaseConfigured();
   const [form, setForm] = useState({
     email: "",
@@ -20,7 +21,16 @@ export default function SignupPage() {
   });
   const [useInvite, setUseInvite] = useState(false);
   const [error, setError] = useState("");
+  const [confirmEmail, setConfirmEmail] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const invite = searchParams.get("invite");
+    if (invite) {
+      setForm((f) => ({ ...f, invite_token: invite }));
+      setUseInvite(true);
+    }
+  }, [searchParams]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -42,7 +52,14 @@ export default function SignupPage() {
     const { data, error: authError } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
-      options: { data: { full_name: form.full_name } },
+      options: {
+        data: {
+          full_name: form.full_name,
+          pending_club_name: useInvite ? null : form.club_name,
+          pending_invite_token: useInvite ? form.invite_token : null,
+        },
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
     });
 
     if (authError) {
@@ -51,13 +68,22 @@ export default function SignupPage() {
       return;
     }
 
-    if (data.user) {
+    if (data.user && !data.session) {
+      setLoading(false);
+      setConfirmEmail(true);
+      return;
+    }
+
+    if (data.session) {
       try {
         if (useInvite && form.invite_token) {
           await joinClubWithInvite(supabase, form.invite_token);
         } else if (form.club_name) {
           await createClub(supabase, form.club_name);
         }
+        await supabase.auth.updateUser({
+          data: { pending_club_name: null, pending_invite_token: null },
+        });
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to set up club");
         setLoading(false);
@@ -68,6 +94,20 @@ export default function SignupPage() {
     setLoading(false);
     router.push("/dashboard");
     router.refresh();
+  }
+
+  if (confirmEmail) {
+    return (
+      <AuthLayout title="Check your email" subtitle="One more step to activate your account">
+        <div className="text-center space-y-4">
+          <p className="text-green-700 bg-green-50 px-4 py-3 rounded-lg text-sm">
+            We sent a confirmation link to <strong>{form.email}</strong>. After
+            confirming, you&apos;ll be guided to finish club setup automatically.
+          </p>
+          <AuthLink href="/login">Go to login</AuthLink>
+        </div>
+      </AuthLayout>
+    );
   }
 
   return (
@@ -179,5 +219,13 @@ export default function SignupPage() {
         </div>
       </form>
     </AuthLayout>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense>
+      <SignupForm />
+    </Suspense>
   );
 }

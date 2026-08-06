@@ -1,19 +1,30 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import {
+  completePendingSignup,
+  getUserClubs,
+} from "@boutforge/api";
 import { loginSchema } from "@boutforge/shared";
 import { AuthLayout, AuthLink } from "@/components/AuthLayout";
 import { SupabaseConfigAlert } from "@/components/SupabaseConfigAlert";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const configured = isSupabaseConfigured();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get("error") === "auth_callback_failed") {
+      setError("Email confirmation failed. Try signing in or sign up again.");
+    }
+  }, [searchParams]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -32,14 +43,21 @@ export default function LoginPage() {
       email,
       password,
     });
-    setLoading(false);
 
     if (authError) {
+      setLoading(false);
       setError(authError.message);
       return;
     }
 
-    router.push("/dashboard");
+    await completePendingSignup(supabase);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const clubs = user ? await getUserClubs(supabase, user.id) : [];
+
+    setLoading(false);
+    router.push(clubs.length > 0 ? "/dashboard" : "/onboarding");
     router.refresh();
   }
 
@@ -91,5 +109,13 @@ export default function LoginPage() {
         </div>
       </form>
     </AuthLayout>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }

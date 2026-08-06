@@ -100,6 +100,48 @@ export async function joinClubWithInvite(
   return invite.club as Club;
 }
 
+type PendingSignupMetadata = {
+  pending_club_name?: string | null;
+  pending_invite_token?: string | null;
+};
+
+/** Finish club setup stored during signup when email confirmation delayed the session. */
+export async function completePendingSignup(
+  supabase: SupabaseClient
+): Promise<Club | null> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const existing = await getUserClubs(supabase, user.id);
+  if (existing.length > 0) {
+    return (existing[0].club as Club | undefined) ?? null;
+  }
+
+  const meta = user.user_metadata as PendingSignupMetadata;
+  const clubName = meta.pending_club_name?.trim();
+  const inviteToken = meta.pending_invite_token?.trim();
+
+  let club: Club | null = null;
+  if (inviteToken) {
+    club = await joinClubWithInvite(supabase, inviteToken);
+  } else if (clubName) {
+    club = await createClub(supabase, clubName);
+  } else {
+    return null;
+  }
+
+  await supabase.auth.updateUser({
+    data: {
+      pending_club_name: null,
+      pending_invite_token: null,
+    },
+  });
+
+  return club;
+}
+
 export async function createInvite(
   supabase: SupabaseClient,
   clubId: string,

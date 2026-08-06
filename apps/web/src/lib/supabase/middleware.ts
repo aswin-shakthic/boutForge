@@ -2,12 +2,23 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseEnv } from "./env";
 
-function isAuthPage(pathname: string) {
+function isPublicPath(pathname: string) {
   return (
+    pathname === "/" ||
     pathname.startsWith("/login") ||
     pathname.startsWith("/signup") ||
     pathname.startsWith("/forgot-password") ||
+    pathname.startsWith("/reset-password") ||
+    pathname.startsWith("/auth/") ||
     pathname.startsWith("/demo")
+  );
+}
+
+function isAuthMarketingPage(pathname: string) {
+  return (
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/signup") ||
+    pathname.startsWith("/forgot-password")
   );
 }
 
@@ -51,15 +62,14 @@ export async function updateSession(request: NextRequest) {
     } = await supabase.auth.getUser();
 
     const { pathname } = request.nextUrl;
-    const authPage = isAuthPage(pathname);
 
-    if (!user && !authPage && pathname !== "/") {
+    if (!user && !isPublicPath(pathname) && !pathname.startsWith("/onboarding")) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
       return NextResponse.redirect(url);
     }
 
-    if (user && authPage && !pathname.startsWith("/demo")) {
+    if (user && isAuthMarketingPage(pathname)) {
       const url = request.nextUrl.clone();
       url.pathname = "/dashboard";
       return NextResponse.redirect(url);

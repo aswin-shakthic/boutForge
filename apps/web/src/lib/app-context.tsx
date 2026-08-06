@@ -20,6 +20,10 @@ export async function getAppContext() {
 
   const membership = clubs[0] ?? null;
 
+  if (!membership && !profile?.is_platform_admin) {
+    redirect("/onboarding");
+  }
+
   return {
     supabase,
     user,

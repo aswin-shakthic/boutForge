@@ -10,7 +10,10 @@ export default async function DashboardPage() {
     return (
       <div className="card text-center py-12">
         <h2 className="text-xl font-semibold text-navy mb-2">No club found</h2>
-        <p className="text-gray-500">Join or create a club to get started.</p>
+        <p className="text-gray-500 mb-4">Create or join a club to get started.</p>
+        <a href="/onboarding" className="btn-primary inline-block">
+          Finish setup
+        </a>
       </div>
     );
   }

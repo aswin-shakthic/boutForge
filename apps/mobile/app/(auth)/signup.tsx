@@ -31,7 +31,12 @@ export default function SignupScreen() {
     const { data, error: authError } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
-      options: { data: { full_name: form.full_name } },
+      options: {
+        data: {
+          full_name: form.full_name,
+          pending_club_name: form.club_name || null,
+        },
+      },
     });
 
     if (authError) {
@@ -40,14 +45,26 @@ export default function SignupScreen() {
       return;
     }
 
-    if (data.user && form.club_name) {
+    if (data.session && data.user && form.club_name) {
       try {
         await createClub(supabase, form.club_name);
+        await supabase.auth.updateUser({
+          data: { pending_club_name: null },
+        });
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to create club");
         setLoading(false);
         return;
       }
+      setLoading(false);
+      router.replace("/(tabs)");
+      return;
+    }
+
+    if (data.user && !data.session) {
+      setError("Check your email to confirm your account, then log in.");
+      setLoading(false);
+      return;
     }
 
     setLoading(false);
