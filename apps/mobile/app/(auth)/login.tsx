@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { Link, router } from "expo-router";
 import { supabase } from "@/lib/supabase";
+import { resolveAuthDestination } from "@boutforge/api";
 import { APP_NAME, COLORS } from "@boutforge/shared";
 
 export default function LoginScreen() {
@@ -30,7 +31,10 @@ export default function LoginScreen() {
       setError(authError.message);
       return;
     }
-    router.replace("/(tabs)");
+    const destination = await resolveAuthDestination(supabase);
+    router.replace(
+      destination === "dashboard" ? "/(tabs)" : "/(auth)/onboarding"
+    );
   }
 
   return (

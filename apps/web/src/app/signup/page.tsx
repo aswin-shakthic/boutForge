@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
-import { createClub, joinClubWithInvite } from "@boutforge/api";
+import { createClub, joinClubWithInvite, resolveAuthDestination } from "@boutforge/api";
 import { signupSchema } from "@boutforge/shared";
 import { AuthLayout, AuthLink } from "@/components/AuthLayout";
 import { SupabaseConfigAlert } from "@/components/SupabaseConfigAlert";
@@ -92,7 +92,8 @@ function SignupForm() {
     }
 
     setLoading(false);
-    router.push("/dashboard");
+    const destination = await resolveAuthDestination(supabase);
+    router.push(destination === "dashboard" ? "/dashboard" : "/onboarding");
     router.refresh();
   }
 

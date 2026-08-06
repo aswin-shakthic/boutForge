@@ -3,10 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
-import {
-  completePendingSignup,
-  getUserClubs,
-} from "@boutforge/api";
+import { resolveAuthDestination } from "@boutforge/api";
 import { loginSchema } from "@boutforge/shared";
 import { AuthLayout, AuthLink } from "@/components/AuthLayout";
 import { SupabaseConfigAlert } from "@/components/SupabaseConfigAlert";
@@ -50,14 +47,10 @@ function LoginForm() {
       return;
     }
 
-    await completePendingSignup(supabase);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    const clubs = user ? await getUserClubs(supabase, user.id) : [];
+    const destination = await resolveAuthDestination(supabase);
 
     setLoading(false);
-    router.push(clubs.length > 0 ? "/dashboard" : "/onboarding");
+    router.push(destination === "dashboard" ? "/dashboard" : "/onboarding");
     router.refresh();
   }
 

@@ -64,30 +64,13 @@ export async function joinClubWithInvite(
   supabase: SupabaseClient,
   token: string
 ): Promise<Club> {
-  const { data: invite, error } = await supabase
-    .from("club_invites")
-    .select("*, club:clubs(*)")
-    .eq("token", token)
-    .is("used_at", null)
-    .gt("expires_at", new Date().toISOString())
-    .single();
-  if (error || !invite) throw new Error("Invalid or expired invite");
-
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Not authenticated");
-
-  await supabase.from("club_members").insert({
-    club_id: invite.club_id,
-    user_id: user.id,
-    role: invite.role,
+  const { data: club, error } = await supabase.rpc("join_club_with_invite", {
+    p_token: token.trim(),
   });
+  if (error) throw error;
+  if (!club) throw new Error("Invalid or expired invite");
 
-  await supabase
-    .from("club_invites")
-    .update({ used_at: new Date().toISOString() })
-    .eq("id", invite.id);
-
-  return invite.club as Club;
+  return club as Club;
 }
 
 type PendingSignupMetadata = {
@@ -130,6 +113,19 @@ export async function completePendingSignup(
   });
 
   return club;
+}
+
+/** Run pending signup work and return where the user should go next. */
+export async function resolveAuthDestination(
+  supabase: SupabaseClient
+): Promise<"dashboard" | "onboarding"> {
+  await completePendingSignup(supabase);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return "onboarding";
+  const clubs = await getUserClubs(supabase, user.id);
+  return clubs.length > 0 ? "dashboard" : "onboarding";
 }
 
 export async function createInvite(

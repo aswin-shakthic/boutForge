@@ -63,7 +63,7 @@ export async function updateSession(request: NextRequest) {
 
     const { pathname } = request.nextUrl;
 
-    if (!user && !isPublicPath(pathname) && !pathname.startsWith("/onboarding")) {
+    if (!user && !isPublicPath(pathname)) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
       return NextResponse.redirect(url);
@@ -71,7 +71,7 @@ export async function updateSession(request: NextRequest) {
 
     if (user && isAuthMarketingPage(pathname)) {
       const url = request.nextUrl.clone();
-      url.pathname = "/dashboard";
+      url.pathname = "/";
       return NextResponse.redirect(url);
     }
 

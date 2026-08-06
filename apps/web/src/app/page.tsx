@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { completePendingSignup, getUserClubs } from "@boutforge/api";
+import { resolveAuthDestination } from "@boutforge/api";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -18,12 +18,6 @@ export default async function HomePage() {
     redirect("/login");
   }
 
-  await completePendingSignup(supabase);
-  const clubs = await getUserClubs(supabase, user.id);
-
-  if (clubs.length > 0) {
-    redirect("/dashboard");
-  }
-
-  redirect("/onboarding");
+  const destination = await resolveAuthDestination(supabase);
+  redirect(destination === "dashboard" ? "/dashboard" : "/onboarding");
 }

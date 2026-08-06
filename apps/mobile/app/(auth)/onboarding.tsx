@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -9,76 +9,93 @@ import {
   Platform,
   ScrollView,
 } from "react-native";
-import { Link, router } from "expo-router";
+import { router } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import {
+  completePendingSignup,
   createClub,
+  getUserClubs,
   joinClubWithInvite,
-  resolveAuthDestination,
 } from "@boutforge/api";
 import { APP_NAME, COLORS } from "@boutforge/shared";
 
-export default function SignupScreen() {
-  const [form, setForm] = useState({
-    full_name: "",
-    email: "",
-    password: "",
-    club_name: "",
-    invite_token: "",
-  });
+export default function OnboardingScreen() {
   const [useInvite, setUseInvite] = useState(false);
+  const [clubName, setClubName] = useState("");
+  const [inviteToken, setInviteToken] = useState("");
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
-  async function handleSignup() {
-    setError("");
-    setLoading(true);
+  useEffect(() => {
+    async function init() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-    const { data, error: authError } = await supabase.auth.signUp({
-      email: form.email,
-      password: form.password,
-      options: {
-        data: {
-          full_name: form.full_name,
-          pending_club_name: useInvite ? null : form.club_name || null,
-          pending_invite_token: useInvite ? form.invite_token : null,
-        },
-      },
-    });
-
-    if (authError) {
-      setError(authError.message);
-      setLoading(false);
-      return;
-    }
-
-    if (data.user && !data.session) {
-      setError("Check your email to confirm your account, then log in.");
-      setLoading(false);
-      return;
-    }
-
-    if (data.session) {
-      try {
-        if (useInvite && form.invite_token) {
-          await joinClubWithInvite(supabase, form.invite_token);
-        } else if (form.club_name) {
-          await createClub(supabase, form.club_name);
-        }
-        await supabase.auth.updateUser({
-          data: { pending_club_name: null, pending_invite_token: null },
-        });
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to set up club");
-        setLoading(false);
+      if (!user) {
+        router.replace("/(auth)/login");
         return;
       }
+
+      await completePendingSignup(supabase);
+      const clubs = await getUserClubs(supabase, user.id);
+      if (clubs.length > 0) {
+        router.replace("/(tabs)");
+        return;
+      }
+
+      const meta = user.user_metadata as {
+        pending_club_name?: string;
+        pending_invite_token?: string;
+      };
+      if (meta.pending_invite_token) {
+        setInviteToken(meta.pending_invite_token);
+        setUseInvite(true);
+      } else if (meta.pending_club_name) {
+        setClubName(meta.pending_club_name);
+      }
+
+      setLoading(false);
     }
 
-    setLoading(false);
-    const destination = await resolveAuthDestination(supabase);
-    router.replace(
-      destination === "dashboard" ? "/(tabs)" : "/(auth)/onboarding"
+    init();
+  }, []);
+
+  async function handleSubmit() {
+    setError("");
+
+    if (useInvite && !inviteToken.trim()) {
+      setError("Invite code is required");
+      return;
+    }
+    if (!useInvite && !clubName.trim()) {
+      setError("Club name is required");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      if (useInvite) {
+        await joinClubWithInvite(supabase, inviteToken.trim());
+      } else {
+        await createClub(supabase, clubName.trim());
+      }
+      await supabase.auth.updateUser({
+        data: { pending_club_name: null, pending_invite_token: null },
+      });
+      router.replace("/(tabs)");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to set up club");
+      setSubmitting(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.loading}>Loading…</Text>
+      </View>
     );
   }
 
@@ -90,21 +107,9 @@ export default function SignupScreen() {
       <ScrollView contentContainerStyle={styles.inner}>
         <Text style={styles.logo}>{APP_NAME}</Text>
         <View style={styles.card}>
-          <Text style={styles.title}>Create account</Text>
+          <Text style={styles.title}>Finish setup</Text>
+          <Text style={styles.subtitle}>Create or join a club to continue</Text>
           {error ? <Text style={styles.error}>{error}</Text> : null}
-
-          {(["full_name", "email", "password"] as const).map((field) => (
-            <TextInput
-              key={field}
-              style={styles.input}
-              placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
-              value={form[field]}
-              onChangeText={(v) => setForm({ ...form, [field]: v })}
-              secureTextEntry={field === "password"}
-              autoCapitalize={field === "email" ? "none" : "words"}
-              keyboardType={field === "email" ? "email-address" : "default"}
-            />
-          ))}
 
           <View style={styles.toggleRow}>
             <TouchableOpacity
@@ -128,29 +133,20 @@ export default function SignupScreen() {
           <TextInput
             style={styles.input}
             placeholder={useInvite ? "Invite code" : "Club name"}
-            value={useInvite ? form.invite_token : form.club_name}
-            onChangeText={(v) =>
-              setForm({
-                ...form,
-                ...(useInvite ? { invite_token: v } : { club_name: v }),
-              })
-            }
+            value={useInvite ? inviteToken : clubName}
+            onChangeText={useInvite ? setInviteToken : setClubName}
             autoCapitalize={useInvite ? "none" : "words"}
           />
 
           <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
-            onPress={handleSignup}
-            disabled={loading}
+            style={[styles.button, submitting && styles.buttonDisabled]}
+            onPress={handleSubmit}
+            disabled={submitting}
           >
             <Text style={styles.buttonText}>
-              {loading ? "Creating..." : "Sign Up"}
+              {submitting ? "Saving…" : "Continue"}
             </Text>
           </TouchableOpacity>
-
-          <Link href="/(auth)/login" style={styles.link}>
-            Already have an account? Log in
-          </Link>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -160,6 +156,7 @@ export default function SignupScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.navy },
   inner: { flexGrow: 1, justifyContent: "center", padding: 24 },
+  loading: { color: COLORS.white, textAlign: "center", marginTop: 48 },
   logo: {
     fontSize: 32,
     fontWeight: "bold",
@@ -176,6 +173,11 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "600",
     color: COLORS.navy,
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: COLORS.grey600,
     marginBottom: 16,
   },
   toggleRow: { flexDirection: "row", gap: 8, marginBottom: 12 },
@@ -217,11 +219,5 @@ const styles = StyleSheet.create({
     backgroundColor: "#FEE2E2",
     padding: 12,
     borderRadius: 8,
-  },
-  link: {
-    color: COLORS.red,
-    textAlign: "center",
-    marginTop: 16,
-    fontSize: 14,
   },
 });
