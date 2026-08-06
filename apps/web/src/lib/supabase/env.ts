@@ -20,6 +20,7 @@ export function getSupabaseEnv(): SupabaseEnv | null {
   return { url, anonKey };
 }
 
+/** @deprecated Use getSupabaseEnv() and handle null instead of throwing during build. */
 export function requireSupabaseEnv(context: string): SupabaseEnv {
   const env = getSupabaseEnv();
   if (!env) {

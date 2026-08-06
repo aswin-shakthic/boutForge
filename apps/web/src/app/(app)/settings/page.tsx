@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { createInvite } from "@boutforge/api";
 import { inviteSchema } from "@boutforge/shared";
@@ -14,7 +15,9 @@ export default function SettingsPage() {
   const [clubId, setClubId] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
+    supabase.auth
+      .getUser()
+      .then(async ({ data: { user } }: { data: { user: User | null } }) => {
       if (!user) return;
       const { data } = await supabase
         .from("club_members")
