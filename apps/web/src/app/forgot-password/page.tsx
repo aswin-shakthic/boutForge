@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { forgotPasswordSchema } from "@boutforge/shared";
 import { AuthLayout, AuthLink } from "@/components/AuthLayout";
+import { SupabaseConfigAlert } from "@/components/SupabaseConfigAlert";
 
 export default function ForgotPasswordPage() {
-  const supabase = createClient();
+  const configured = isSupabaseConfigured();
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
@@ -15,6 +16,8 @@ export default function ForgotPasswordPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    if (!configured) return;
+
     const parsed = forgotPasswordSchema.safeParse({ email });
     if (!parsed.success) {
       setError(parsed.error.errors[0].message);
@@ -22,6 +25,7 @@ export default function ForgotPasswordPage() {
     }
 
     setLoading(true);
+    const supabase = createClient();
     const { error: authError } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/login`,
     });
@@ -36,6 +40,7 @@ export default function ForgotPasswordPage() {
 
   return (
     <AuthLayout title="Reset password" subtitle="We'll send you a reset link">
+      <SupabaseConfigAlert />
       {success ? (
         <div className="text-center space-y-4">
           <p className="text-green-700 bg-green-50 px-4 py-3 rounded-lg text-sm">
@@ -60,9 +65,14 @@ export default function ForgotPasswordPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              disabled={!configured}
             />
           </div>
-          <button type="submit" className="btn-primary w-full" disabled={loading}>
+          <button
+            type="submit"
+            className="btn-primary w-full"
+            disabled={loading || !configured}
+          >
             {loading ? "Sending..." : "Send reset link"}
           </button>
           <div className="text-center text-sm">

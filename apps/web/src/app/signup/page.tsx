@@ -2,14 +2,15 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { createClub, joinClubWithInvite } from "@boutforge/api";
 import { signupSchema } from "@boutforge/shared";
 import { AuthLayout, AuthLink } from "@/components/AuthLayout";
+import { SupabaseConfigAlert } from "@/components/SupabaseConfigAlert";
 
 export default function SignupPage() {
   const router = useRouter();
-  const supabase = createClient();
+  const configured = isSupabaseConfigured();
   const [form, setForm] = useState({
     email: "",
     password: "",
@@ -24,6 +25,7 @@ export default function SignupPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    if (!configured) return;
 
     const payload = useInvite
       ? { ...form, club_name: undefined }
@@ -36,6 +38,7 @@ export default function SignupPage() {
     }
 
     setLoading(true);
+    const supabase = createClient();
     const { data, error: authError } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
@@ -69,6 +72,7 @@ export default function SignupPage() {
 
   return (
     <AuthLayout title="Create account" subtitle="Set up your boxing club">
+      <SupabaseConfigAlert />
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
           <div className="bg-red-50 text-red-700 px-4 py-3 rounded-lg text-sm">
@@ -84,6 +88,7 @@ export default function SignupPage() {
             value={form.full_name}
             onChange={(e) => setForm({ ...form, full_name: e.target.value })}
             required
+            disabled={!configured}
           />
         </div>
         <div>
@@ -96,6 +101,7 @@ export default function SignupPage() {
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
             required
+            disabled={!configured}
           />
         </div>
         <div>
@@ -108,6 +114,7 @@ export default function SignupPage() {
             value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })}
             required
+            disabled={!configured}
           />
         </div>
 
@@ -117,6 +124,7 @@ export default function SignupPage() {
               type="radio"
               checked={!useInvite}
               onChange={() => setUseInvite(false)}
+              disabled={!configured}
             />
             Create new club
           </label>
@@ -125,6 +133,7 @@ export default function SignupPage() {
               type="radio"
               checked={useInvite}
               onChange={() => setUseInvite(true)}
+              disabled={!configured}
             />
             Join with invite
           </label>
@@ -140,6 +149,7 @@ export default function SignupPage() {
               value={form.invite_token}
               onChange={(e) => setForm({ ...form, invite_token: e.target.value })}
               required
+              disabled={!configured}
             />
           </div>
         ) : (
@@ -152,11 +162,16 @@ export default function SignupPage() {
               value={form.club_name}
               onChange={(e) => setForm({ ...form, club_name: e.target.value })}
               required
+              disabled={!configured}
             />
           </div>
         )}
 
-        <button type="submit" className="btn-primary w-full" disabled={loading}>
+        <button
+          type="submit"
+          className="btn-primary w-full"
+          disabled={loading || !configured}
+        >
           {loading ? "Creating account..." : "Sign Up"}
         </button>
         <div className="text-center text-sm">

@@ -5,7 +5,11 @@ import { AppShell } from "@/components/AppShell";
 
 export async function getAppContext() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  if (!supabase) redirect("/login");
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   if (!user) redirect("/login");
 

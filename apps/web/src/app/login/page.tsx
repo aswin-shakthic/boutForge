@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { loginSchema } from "@boutforge/shared";
 import { AuthLayout, AuthLink } from "@/components/AuthLayout";
+import { SupabaseConfigAlert } from "@/components/SupabaseConfigAlert";
 
 export default function LoginPage() {
   const router = useRouter();
-  const supabase = createClient();
+  const configured = isSupabaseConfigured();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -17,6 +18,8 @@ export default function LoginPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    if (!configured) return;
+
     const parsed = loginSchema.safeParse({ email, password });
     if (!parsed.success) {
       setError(parsed.error.errors[0].message);
@@ -24,6 +27,7 @@ export default function LoginPage() {
     }
 
     setLoading(true);
+    const supabase = createClient();
     const { error: authError } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -41,6 +45,7 @@ export default function LoginPage() {
 
   return (
     <AuthLayout title="Welcome back" subtitle="Sign in to your club account">
+      <SupabaseConfigAlert />
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
           <div className="bg-red-50 text-red-700 px-4 py-3 rounded-lg text-sm">
@@ -57,6 +62,7 @@ export default function LoginPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
+            disabled={!configured}
           />
         </div>
         <div>
@@ -69,9 +75,14 @@ export default function LoginPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
+            disabled={!configured}
           />
         </div>
-        <button type="submit" className="btn-primary w-full" disabled={loading}>
+        <button
+          type="submit"
+          className="btn-primary w-full"
+          disabled={loading || !configured}
+        >
           {loading ? "Signing in..." : "Log In"}
         </button>
         <div className="flex justify-between text-sm">
