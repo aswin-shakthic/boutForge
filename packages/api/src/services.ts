@@ -50,22 +50,12 @@ export async function createClub(
   name: string,
   stateUnit?: string
 ): Promise<Club> {
-  const { data: club, error: clubError } = await supabase
-    .from("clubs")
-    .insert({ name, state_unit: stateUnit ?? null })
-    .select()
-    .single();
-  if (clubError) throw clubError;
-
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Not authenticated");
-
-  const { error: memberError } = await supabase.from("club_members").insert({
-    club_id: club.id,
-    user_id: user.id,
-    role: "club_admin",
+  const { data: club, error } = await supabase.rpc("create_club_with_admin", {
+    p_name: name,
+    p_state_unit: stateUnit ?? null,
   });
-  if (memberError) throw memberError;
+  if (error) throw error;
+  if (!club) throw new Error("Failed to create club");
 
   return club as Club;
 }
