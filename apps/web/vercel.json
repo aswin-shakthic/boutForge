@@ -1,5 +1,5 @@
 {
-  "buildCommand": "cd ../.. && npm run build --filter=@boutforge/web",
+  "buildCommand": "cd ../.. && npm run build --workspace=@boutforge/web",
   "outputDirectory": ".next",
   "installCommand": "cd ../.. && npm install",
   "framework": "nextjs"
