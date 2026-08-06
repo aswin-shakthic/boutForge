@@ -1,0 +1,17 @@
+project_id = "boutforge"
+
+[api]
+port = 54321
+
+[db]
+port = 54322
+
+[db.seed]
+enabled = true
+sql_paths = ["./seed.sql"]
+
+[studio]
+port = 54323
+
+[analytics]
+enabled = false
