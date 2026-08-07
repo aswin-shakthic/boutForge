@@ -147,6 +147,67 @@ export function dobFromBirthYear(birthYear: number): string {
   return `${birthYear}-01-01`;
 }
 
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function normalizeClubLookupKey(name: string): string {
+  return name.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+export function compactClubLookupKey(name: string): string {
+  return normalizeClubLookupKey(name).replace(/[^a-z0-9]/g, "");
+}
+
+export function getImportableClubLabel(entry: {
+  club_id: string;
+  club?: { name?: string | null } | null;
+}): string {
+  return entry.club?.name?.trim() || entry.club_id;
+}
+
+export function formatImportableClubNames(
+  memberships: Array<{ club_id: string; club?: { name?: string | null } | null }>
+): string {
+  const names = memberships.map(getImportableClubLabel);
+  if (names.length === 0) return "none";
+  if (names.length === 1) return names[0];
+  if (names.length === 2) return `${names[0]} or ${names[1]}`;
+  return `${names.slice(0, -1).join(", ")}, or ${names[names.length - 1]}`;
+}
+
+export function resolveImportableClub(
+  memberships: Array<{ club_id: string; club?: { name?: string | null } | null }>,
+  clubNameOrId: string
+): (typeof memberships)[number] | null {
+  const raw = clubNameOrId.trim();
+  if (!raw) return null;
+
+  if (UUID_PATTERN.test(raw)) {
+    return memberships.find((entry) => entry.club_id === raw) ?? null;
+  }
+
+  const normalized = normalizeClubLookupKey(raw);
+  const compact = compactClubLookupKey(raw);
+
+  const exactMatches = memberships.filter(
+    (entry) => normalizeClubLookupKey(getImportableClubLabel(entry)) === normalized
+  );
+  if (exactMatches.length === 1) return exactMatches[0];
+
+  const compactMatches = memberships.filter(
+    (entry) => compactClubLookupKey(getImportableClubLabel(entry)) === compact
+  );
+  if (compactMatches.length === 1) return compactMatches[0];
+
+  const prefixMatches = memberships.filter((entry) => {
+    const label = normalizeClubLookupKey(getImportableClubLabel(entry));
+    return label.startsWith(normalized) || normalized.startsWith(label);
+  });
+  if (prefixMatches.length === 1) return prefixMatches[0];
+
+  return null;
+}
+
 export function classifyAgeCategory(
   dob: string,
   ageCategories: AgeCategory[],
@@ -177,6 +238,15 @@ export function classifyWeightClass(
 
 export function fighterFullName(f: { first_name: string; last_name: string }): string {
   return `${f.first_name} ${f.last_name}`;
+}
+
+export function getFighterClubDisplayName(f: {
+  affiliation_name?: string | null;
+  club?: { name?: string | null } | null;
+}): string {
+  const affiliation = f.affiliation_name?.trim();
+  if (affiliation) return affiliation;
+  return f.club?.name?.trim() || "—";
 }
 
 export function fighterRecord(f: { wins: number; losses: number; draws: number }): string {

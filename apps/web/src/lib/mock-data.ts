@@ -115,6 +115,7 @@ function fighter(
     losses,
     draws,
     notes: null,
+    affiliation_name: null,
     status: "active",
     last_bout_at: lastBout ?? null,
     created_at: "2025-06-01T00:00:00Z",

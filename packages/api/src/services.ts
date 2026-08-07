@@ -5,7 +5,9 @@ import {
   canImportFighters,
   dobFromBirthYear,
   generateBracketBouts,
+  getImportableClubLabel,
   parseBirthYear,
+  resolveImportableClub,
   type BracketInput,
   type BoutResultInput,
   type EventInput,
@@ -750,37 +752,43 @@ export async function importFightersFromCSV(
     canImportFighters(entry.role)
   );
 
-  function resolveClubId(rowIndex: number, clubName?: string): string | null {
+  function resolveClubTarget(
+    rowIndex: number,
+    clubName?: string
+  ): { clubId: string; affiliationName: string | null } | null {
     const normalized = clubName?.trim();
-    if (normalized) {
-      const match = importableClubs.find(
-        (entry) => entry.club?.name?.toLowerCase() === normalized.toLowerCase()
-      );
-      if (!match) {
-        errors.push(
-          `Row ${rowIndex + 1}: Unknown or unauthorized club "${normalized}"`
-        );
-        return null;
-      }
-      return match.club_id;
-    }
 
     const defaultClub = importableClubs.find(
       (entry) => entry.club_id === defaultClubId
     );
     if (!defaultClub) {
       errors.push(
-        `Row ${rowIndex + 1}: No club_name provided and default club is not importable`
+        `Row ${rowIndex + 1}: Default club is not importable`
       );
       return null;
     }
-    return defaultClub.club_id;
+
+    if (!normalized) {
+      return { clubId: defaultClub.club_id, affiliationName: null };
+    }
+
+    const match = resolveImportableClub(importableClubs, normalized);
+    if (match) {
+      return { clubId: match.club_id, affiliationName: null };
+    }
+
+    return {
+      clubId: defaultClub.club_id,
+      affiliationName: normalized,
+    };
   }
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
-    const targetClubId = resolveClubId(i, row.club_name);
-    if (!targetClubId) continue;
+    const target = resolveClubTarget(i, row.club_name);
+    if (!target) continue;
+
+    const { clubId: targetClubId, affiliationName } = target;
 
     const parts = row.name.trim().split(/\s+/);
     const firstName = parts[0] ?? "";
@@ -826,6 +834,7 @@ export async function importFightersFromCSV(
       weight_kg: row.weight_kg,
       age_category_id: ageCategory?.id ?? null,
       weight_class_id: weightClass?.id ?? null,
+      affiliation_name: affiliationName,
     });
 
     if (error) {
@@ -833,8 +842,12 @@ export async function importFightersFromCSV(
     } else {
       imported++;
       const clubName =
-        importableClubs.find((entry) => entry.club_id === targetClubId)?.club
-          ?.name ?? "Club";
+        affiliationName ??
+        getImportableClubLabel(
+          importableClubs.find((entry) => entry.club_id === targetClubId) ?? {
+            club_id: targetClubId,
+          }
+        );
       const existing = countByClub.get(targetClubId);
       if (existing) {
         existing.count += 1;

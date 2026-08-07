@@ -144,7 +144,7 @@ export default function ImportPage() {
 
   function handlePasteExample() {
     setCsvPaste(`name,birth_year,gender,weight_kg,club_name
-Rahul Sharma,2008,male,58,Mumbai Warriors
+Rahul Sharma,2008,male,58,
 Amit Patel,2009,male,59,`);
     setResult(null);
     setError("");
@@ -171,23 +171,32 @@ Amit Patel,2009,male,59,`);
         <p className="text-sm text-gray-500">
           Upload a file or paste CSV with columns:{" "}
           <code className="bg-gray-100 px-1 rounded">
-            name, birth_year, gender, weight_kg
+            name, birth_year, gender, weight
           </code>{" "}
-          and optional{" "}
+          (or <code className="bg-gray-100 px-1 rounded">weight_kg</code>) and optional{" "}
           <code className="bg-gray-100 px-1 rounded">club_name</code>.
         </p>
 
+        {importableMemberships.length > 0 ? (
+          <p className="text-xs text-gray-600 bg-blue-50 px-3 py-2 rounded-lg">
+            Fighters are registered under your default club above.{" "}
+            <code className="bg-white px-1 rounded">club_name</code> stores each
+            fighter&apos;s team or gym (e.g. YBBC, DST Boxing Club) — it does not
+            need to match a BoutForge club you belong to.
+          </p>
+        ) : null}
+
         <div className="bg-gray-50 p-4 rounded-lg text-xs font-mono text-gray-600 overflow-x-auto">
-          name,birth_year,gender,weight_kg,club_name
+          name,birth_year,gender,weight,club_name
           <br />
-          Rahul Sharma,2008,male,58,Mumbai Warriors
+          Rahul Sharma,2008,male,58,YBBC
           <br />
-          Amit Patel,2009,male,59,
+          Amit Patel,2009,male,59,DST Boxing Club
         </div>
 
         <p className="text-xs text-gray-500">
           Leave <code className="bg-gray-100 px-1 rounded">club_name</code> blank
-          to use the default club above. Names must match your clubs exactly.
+          if the fighter belongs to your default club only.
         </p>
 
         <div>
@@ -233,7 +242,7 @@ Amit Patel,2009,male,59,`);
               setResult(null);
               setError("");
             }}
-            placeholder={`name,birth_year,gender,weight_kg,club_name\nRahul Sharma,2008,male,58,Mumbai Warriors\nAmit Patel,2009,male,59,`}
+            placeholder={`name,birth_year,gender,weight_kg,club_name\nRahul Sharma,2008,male,58,\nAmit Patel,2009,male,59,`}
             disabled={importDisabled}
             className="input-field font-mono text-xs min-h-[10rem] resize-y"
           />

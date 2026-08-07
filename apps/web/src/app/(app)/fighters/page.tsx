@@ -4,6 +4,7 @@ import {
   fighterFullName,
   fighterRecord,
   getAgeFromDob,
+  getFighterClubDisplayName,
 } from "@boutforge/shared";
 import { getAppContext } from "@/lib/app-context";
 
@@ -55,7 +56,7 @@ export default async function FightersPage() {
                       </p>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700">
-                      {fighter.club?.name ?? "—"}
+                      {getFighterClubDisplayName(fighter)}
                     </td>
                     <td className="px-6 py-4 text-sm">
                       <span className="badge bg-blue-100 text-blue-800">

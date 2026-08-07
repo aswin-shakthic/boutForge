@@ -4,6 +4,7 @@ import {
   fighterFullName,
   fighterRecord,
   getAgeFromDob,
+  getFighterClubDisplayName,
   BOUT_METHOD_LABELS,
   participationRecord,
 } from "@boutforge/shared";
@@ -59,7 +60,7 @@ export default async function FighterDetailPage({
         <div className="card">
           <p className="text-sm text-gray-500">Home club</p>
           <p className="text-lg font-semibold text-navy mt-1">
-            {fighter.club?.name ?? "—"}
+            {getFighterClubDisplayName(fighter)}
           </p>
         </div>
         <div className="card">

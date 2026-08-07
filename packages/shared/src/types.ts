@@ -100,6 +100,7 @@ export interface Fighter {
   losses: number;
   draws: number;
   notes: string | null;
+  affiliation_name: string | null;
   status: "active" | "inactive";
   created_at: string;
   age_category?: AgeCategory;
