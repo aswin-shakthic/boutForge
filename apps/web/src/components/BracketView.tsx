@@ -3,7 +3,6 @@
 import {
   fighterFullName,
   fighterRecord,
-  getBracketMatchMarginTop,
   getMatchGameLabel,
   organizeBoutsByRound,
   type Bout,
@@ -161,8 +160,6 @@ function BracketFixtureRow({
   bouts,
   canEdit,
   onAssign,
-  onRecord,
-  canRecord,
 }: {
   bout: Bout;
   slot: "a" | "b";
@@ -170,8 +167,6 @@ function BracketFixtureRow({
   bouts: Bout[];
   canEdit: boolean;
   onAssign: (boutId: string, slot: "a" | "b", fighterId: string | null) => Promise<void>;
-  onRecord?: () => void;
-  canRecord?: boolean;
 }) {
   const [saving, setSaving] = useState(false);
   const fighterId = slot === "a" ? bout.fighter_a_id : bout.fighter_b_id;
@@ -203,6 +198,8 @@ function BracketFixtureRow({
     .filter(Boolean)
     .join(" ");
 
+  const displayName = slotDisplayName(bout, slot, bouts);
+
   return (
     <div className="bracket-fixture-row">
       <div className={nameClass}>
@@ -212,6 +209,7 @@ function BracketFixtureRow({
             value={fighterId ?? ""}
             disabled={saving}
             onChange={(e) => handleChange(e.target.value)}
+            title={displayName}
           >
             <option value="">Select fighter…</option>
             {options.map((f) => (
@@ -221,16 +219,9 @@ function BracketFixtureRow({
             ))}
           </select>
         ) : (
-          <span className="bracket-fixture-name-print">{slotDisplayName(bout, slot, bouts)}</span>
-        )}
-        {canRecord && bout.status === "scheduled" && slot === "b" && onRecord && (
-          <button
-            type="button"
-            onClick={onRecord}
-            className="no-print ml-auto text-[10px] text-boxing hover:underline shrink-0"
-          >
-            Result
-          </button>
+          <span className="bracket-fixture-name-text bracket-fixture-name-print" title={displayName}>
+            {displayName}
+          </span>
         )}
       </div>
       <div className="bracket-fixture-score">{slotScoreMark(bout, slot)}</div>
@@ -249,7 +240,6 @@ function BracketFixture({
   canRecord,
   onAssign,
   onRecord,
-  marginTop,
 }: {
   bout: Bout;
   roundLabel: string;
@@ -261,10 +251,11 @@ function BracketFixture({
   canRecord: boolean;
   onAssign: (boutId: string, slot: "a" | "b", fighterId: string | null) => Promise<void>;
   onRecord: () => void;
-  marginTop: number;
 }) {
+  const canEnterResult = canRecord && bout.status === "scheduled";
+
   return (
-    <div className="bracket-fixture" style={{ top: marginTop }}>
+    <div className="bracket-fixture">
       <p className="bracket-fixture-label">{getMatchGameLabel(roundLabel, gameIndex)}</p>
       <div className="bracket-fixture-box">
         <BracketFixtureRow
@@ -282,10 +273,19 @@ function BracketFixture({
           bouts={bouts}
           canEdit={canEdit}
           onAssign={onAssign}
-          onRecord={onRecord}
-          canRecord={canRecord}
         />
       </div>
+      {canEnterResult && (
+        <div className="bracket-fixture-actions no-print">
+          <button
+            type="button"
+            onClick={onRecord}
+            className="text-xs font-medium text-boxing hover:underline"
+          >
+            Enter result →
+          </button>
+        </div>
+      )}
       {!isLastRound && <span className="bracket-fixture-connector" aria-hidden />}
     </div>
   );
@@ -315,7 +315,12 @@ export function BracketView({
     setBouts(initialBouts);
   }, [initialBouts]);
 
-  const { rounds, treeHeight } = useMemo(() => organizeBoutsByRound(bouts), [bouts]);
+  const { rounds } = useMemo(() => organizeBoutsByRound(bouts), [bouts]);
+
+  const treeMinHeight = useMemo(() => {
+    const firstRoundCount = rounds[0]?.bouts.length ?? 1;
+    return Math.max(180, firstRoundCount * 110);
+  }, [rounds]);
 
   const handleAssign = useCallback(
     async (boutId: string, slot: "a" | "b", fighterId: string | null) => {
@@ -348,6 +353,11 @@ export function BracketView({
     return ids.size;
   }, [bouts]);
 
+  const tournamentTitle =
+    participantCount > 0
+      ? `${participantCount} Fighter Single Elimination Tournament`
+      : bracket.name;
+
   return (
     <div className="space-y-4">
       <div className="bracket-actions no-print">
@@ -363,16 +373,14 @@ export function BracketView({
         </button>
       </div>
 
-      <div id="bracket-print-area" className="bracket-print-sheet p-6 md:p-8">
-        <div className="text-center mb-8">
-          <h1 className="bracket-print-title">
-            {participantCount > 0
-              ? `${participantCount} Fighter Single Elimination Tournament`
-              : bracket.name}
-          </h1>
-          <p className="bracket-print-meta mt-3 font-medium text-gray-700 normal-case">
-            {bracket.name}
-          </p>
+      <div id="bracket-print-area" className="bracket-print-sheet p-6 md:p-10">
+        <div className="text-center mb-10">
+          <h1 className="bracket-print-title">{tournamentTitle}</h1>
+          {participantCount > 0 && bracket.name !== tournamentTitle && (
+            <p className="bracket-print-meta mt-3 font-medium text-gray-700 normal-case">
+              {bracket.name}
+            </p>
+          )}
           <p className="bracket-print-meta capitalize">
             {bracket.format.replace(/_/g, " ")} · {bracket.status.replace(/_/g, " ")}
             {bracket.scheduled_date ? ` · ${bracket.scheduled_date}` : ""}
@@ -383,33 +391,33 @@ export function BracketView({
           <p className="text-center text-gray-500">No matches in this bracket yet.</p>
         ) : (
           <div className="overflow-x-auto">
-            <div className="bracket-tree" style={{ minHeight: treeHeight }}>
+            <div className="bracket-tree" style={{ minHeight: treeMinHeight }}>
               {rounds.map((round, roundIndex) => (
                 <div
                   key={round.roundNumber}
                   className="bracket-round-col"
-                  style={{ minHeight: treeHeight }}
+                  style={{ minHeight: treeMinHeight }}
                 >
-                  <p className="text-center text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">
-                    {round.label}
-                  </p>
-                  <div className="relative flex-1" style={{ minHeight: treeHeight - 32 }}>
-                  {round.bouts.map((bout, index) => (
-                    <BracketFixture
-                      key={bout.id}
-                      bout={bout}
-                      roundLabel={round.label}
-                      gameIndex={index}
-                      isLastRound={roundIndex === rounds.length - 1}
-                      fighters={fighters}
-                      bouts={bouts}
-                      canEdit={canEdit}
-                      canRecord={canRecord}
-                      onAssign={handleAssign}
-                      onRecord={() => setSelectedBout(bout)}
-                      marginTop={getBracketMatchMarginTop(round.roundNumber, index)}
-                    />
-                  ))}
+                  <p className="bracket-round-header">{round.label}</p>
+                  <div
+                    className="bracket-round-matches"
+                    style={{ minHeight: treeMinHeight - 40 }}
+                  >
+                    {round.bouts.map((bout, index) => (
+                      <BracketFixture
+                        key={bout.id}
+                        bout={bout}
+                        roundLabel={round.label}
+                        gameIndex={index}
+                        isLastRound={roundIndex === rounds.length - 1}
+                        fighters={fighters}
+                        bouts={bouts}
+                        canEdit={canEdit}
+                        canRecord={canRecord}
+                        onAssign={handleAssign}
+                        onRecord={() => setSelectedBout(bout)}
+                      />
+                    ))}
                   </div>
                 </div>
               ))}

@@ -41,56 +41,68 @@ body {
   }
 
   .bracket-round-col {
-    @apply relative flex flex-col min-w-[11.5rem];
+    @apply relative flex flex-col min-w-[12.5rem];
   }
 
   .bracket-round-col:not(:last-child) {
-    @apply pr-10;
+    @apply pr-12;
   }
 
-  .bracket-round-col:not(:last-child)::after {
-    content: "";
-    @apply absolute top-0 bottom-0 right-5 w-px bg-gray-300;
+  .bracket-round-header {
+    @apply text-center text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 shrink-0;
+  }
+
+  .bracket-round-matches {
+    @apply flex flex-col justify-around flex-1 gap-4 py-2;
+    min-height: 10rem;
   }
 
   .bracket-fixture {
-    @apply absolute left-0 right-10;
+    @apply relative shrink-0;
   }
 
   .bracket-fixture-label {
-    @apply text-[11px] text-gray-400 mb-1 whitespace-nowrap;
+    @apply text-[11px] text-gray-400 mb-1.5 whitespace-nowrap;
   }
 
   .bracket-fixture-box {
-    @apply border border-gray-300 rounded-sm bg-white overflow-hidden;
+    @apply border border-gray-400 rounded bg-white overflow-hidden shadow-sm;
   }
 
   .bracket-fixture-row {
-    @apply flex min-h-[26px] border-b border-gray-200 last:border-b-0;
+    @apply flex h-9 border-b border-gray-300 last:border-b-0;
   }
 
   .bracket-fixture-name {
-    @apply flex-1 px-2 py-1 text-[13px] text-gray-900 truncate flex items-center;
+    @apply flex-1 min-w-0 px-2.5 text-[13px] text-gray-900 flex items-center;
+  }
+
+  .bracket-fixture-name-text {
+    @apply truncate block w-full leading-tight;
   }
 
   .bracket-fixture-name-winner {
-    @apply font-semibold bg-gray-50;
+    @apply font-semibold bg-emerald-50;
   }
 
   .bracket-fixture-name-loser {
-    @apply text-gray-400;
+    @apply text-gray-400 line-through decoration-gray-300;
   }
 
   .bracket-fixture-score {
-    @apply w-9 shrink-0 border-l border-gray-200 bg-white flex items-center justify-center text-[11px] text-gray-500;
+    @apply w-10 shrink-0 border-l border-gray-300 bg-gray-50 flex items-center justify-center text-xs font-semibold text-gray-600;
+  }
+
+  .bracket-fixture-actions {
+    @apply mt-1.5;
   }
 
   .bracket-fixture-connector {
-    @apply absolute top-1/2 -right-5 w-5 h-px bg-gray-300;
+    @apply pointer-events-none absolute top-[calc(50%+0.625rem)] -right-12 w-12 h-px bg-gray-400;
   }
 
   .bracket-fixture-select {
-    @apply w-full bg-transparent border-0 px-2 py-1 text-[13px] text-gray-900 focus:outline-none focus:ring-1 focus:ring-boxing rounded-sm;
+    @apply w-full h-full bg-transparent border-0 px-1 text-[13px] text-gray-900 focus:outline-none focus:ring-1 focus:ring-boxing rounded-sm truncate;
   }
 
   .bracket-actions {
