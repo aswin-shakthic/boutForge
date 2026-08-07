@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   classifyAgeCategory,
   classifyWeightClass,
+  canImportFighters,
   generateBracketBouts,
   type BracketInput,
   type BoutResultInput,
@@ -723,16 +724,62 @@ export async function getAllClubs(supabase: SupabaseClient): Promise<Club[]> {
 
 export async function importFightersFromCSV(
   supabase: SupabaseClient,
-  clubId: string,
-  rows: Array<{ name: string; dob: string; gender: string; weight_kg: number }>
-): Promise<{ imported: number; errors: string[]; club_id: string }> {
+  defaultClubId: string,
+  rows: Array<{
+    name: string;
+    dob: string;
+    gender: string;
+    weight_kg: number;
+    club_name?: string;
+  }>,
+  memberships: ClubMember[]
+): Promise<{
+  imported: number;
+  errors: string[];
+  clubCounts: Array<{ club_id: string; club_name: string; count: number }>;
+}> {
   const ageCategories = await getAgeCategories(supabase);
   const weightClasses = await getWeightClasses(supabase);
   const errors: string[] = [];
   let imported = 0;
+  const countByClub = new Map<string, { club_name: string; count: number }>();
+
+  const importableClubs = memberships.filter((entry) =>
+    canImportFighters(entry.role)
+  );
+
+  function resolveClubId(rowIndex: number, clubName?: string): string | null {
+    const normalized = clubName?.trim();
+    if (normalized) {
+      const match = importableClubs.find(
+        (entry) => entry.club?.name?.toLowerCase() === normalized.toLowerCase()
+      );
+      if (!match) {
+        errors.push(
+          `Row ${rowIndex + 1}: Unknown or unauthorized club "${normalized}"`
+        );
+        return null;
+      }
+      return match.club_id;
+    }
+
+    const defaultClub = importableClubs.find(
+      (entry) => entry.club_id === defaultClubId
+    );
+    if (!defaultClub) {
+      errors.push(
+        `Row ${rowIndex + 1}: No club_name provided and default club is not importable`
+      );
+      return null;
+    }
+    return defaultClub.club_id;
+  }
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
+    const targetClubId = resolveClubId(i, row.club_name);
+    if (!targetClubId) continue;
+
     const parts = row.name.trim().split(/\s+/);
     const firstName = parts[0] ?? "";
     const lastName = parts.slice(1).join(" ") || firstName;
@@ -759,7 +806,7 @@ export async function importFightersFromCSV(
       : null;
 
     const { error } = await supabase.from("fighters").insert({
-      club_id: clubId,
+      club_id: targetClubId,
       first_name: firstName,
       last_name: lastName,
       dob: row.dob,
@@ -773,10 +820,27 @@ export async function importFightersFromCSV(
       errors.push(`Row ${i + 1}: ${error.message}`);
     } else {
       imported++;
+      const clubName =
+        importableClubs.find((entry) => entry.club_id === targetClubId)?.club
+          ?.name ?? "Club";
+      const existing = countByClub.get(targetClubId);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        countByClub.set(targetClubId, { club_name: clubName, count: 1 });
+      }
     }
   }
 
-  return { imported, errors, club_id: clubId };
+  return {
+    imported,
+    errors,
+    clubCounts: Array.from(countByClub.entries()).map(([club_id, value]) => ({
+      club_id,
+      club_name: value.club_name,
+      count: value.count,
+    })),
+  };
 }
 
 export async function getDashboardStats(
