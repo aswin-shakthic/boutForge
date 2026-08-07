@@ -90,7 +90,11 @@ export type BracketListItem = {
   event_id: string;
   age_category_id: string | null;
   weight_class_id: string | null;
-  age_category?: { name: string } | null;
+  age_category?: {
+    name: string;
+    birth_year_from?: number | null;
+    birth_year_to?: number | null;
+  } | null;
   weight_class?: { name: string; gender?: string | null } | null;
   event?: {
     id: string;
@@ -100,6 +104,52 @@ export type BracketListItem = {
     status: string;
   } | null;
 };
+
+export function formatFixtureBracketName(parts: {
+  categoryName: string;
+  gender: string;
+  weightClassName: string;
+  birthYearFrom?: number | null;
+  birthYearTo?: number | null;
+}): string {
+  const base = `${parts.categoryName} ${parts.gender} ${parts.weightClassName}`.trim();
+  const from = parts.birthYearFrom;
+  const to = parts.birthYearTo;
+  if (from != null && to != null) {
+    const minYear = Math.min(from, to);
+    const maxYear = Math.max(from, to);
+    return `${base} (${minYear}/${maxYear})`;
+  }
+  return base;
+}
+
+export function getBracketDisplayName(bracket: BracketListItem): string {
+  const categoryName = bracket.age_category?.name;
+  const weightName = bracket.weight_class?.name;
+  const gender = bracket.gender ?? bracket.weight_class?.gender;
+
+  if (categoryName && weightName && gender) {
+    return formatFixtureBracketName({
+      categoryName,
+      gender,
+      weightClassName: weightName,
+      birthYearFrom: bracket.age_category?.birth_year_from,
+      birthYearTo: bracket.age_category?.birth_year_to,
+    });
+  }
+
+  return bracket.name;
+}
+
+function formatBirthYearRange(
+  birthYearFrom?: number | null,
+  birthYearTo?: number | null
+): string | null {
+  if (birthYearFrom == null || birthYearTo == null) return null;
+  const minYear = Math.min(birthYearFrom, birthYearTo);
+  const maxYear = Math.max(birthYearFrom, birthYearTo);
+  return `${minYear}/${maxYear}`;
+}
 
 export type BracketDisplayGroup = {
   key: string;
@@ -124,13 +174,20 @@ export function groupBracketsForDisplay(brackets: BracketListItem[]): BracketDis
     const categoryName = bracket.age_category?.name ?? "General";
     const weightName = bracket.weight_class?.name ?? "Open weight";
     const gender = bracket.gender ?? bracket.weight_class?.gender ?? "";
-    const key = `${categoryName}::${gender}::${weightName}`;
+    const birthYears = formatBirthYearRange(
+      bracket.age_category?.birth_year_from,
+      bracket.age_category?.birth_year_to
+    );
+    const key = `${categoryName}::${gender}::${weightName}::${birthYears ?? ""}`;
 
     if (!groups.has(key)) {
+      const subtitleParts = [gender, weightName, birthYears ? `(${birthYears})` : null].filter(
+        Boolean
+      );
       groups.set(key, {
         key,
         title: categoryName,
-        subtitle: [gender, weightName].filter(Boolean).join(" · "),
+        subtitle: subtitleParts.join(" · "),
         brackets: [],
       });
     }

@@ -6,6 +6,7 @@ import {
   canDeleteEvent as checkCanDeleteEvent,
   canEditEvent as checkCanEditEvent,
   fighterFullName,
+  getBracketDisplayName,
   getFighterClubDisplayName,
   groupBracketsForDisplay,
 } from "@boutforge/shared";
@@ -106,6 +107,14 @@ export default async function EventDetailPage({
             variant="primary"
             mode="responsive"
           />
+          {brackets.length > 0 && (
+            <IconAction
+              href={`/events/${event.id}/print?print=1`}
+              label="Print all matches"
+              icon="printer"
+              mode="responsive"
+            />
+          )}
           {event.status === "draft" && <PublishEventButton eventId={event.id} />}
           {canDeleteEventAccess ? (
             <DeleteEventButton
@@ -223,13 +232,14 @@ export default async function EventDetailPage({
                   <div className="space-y-2">
                     {section.brackets.map((bracket) => {
                       const roster = rosterByBracketId.get(bracket.id);
+                      const displayName = getBracketDisplayName(bracket);
                       return (
                         <div
                           key={bracket.id}
                           className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border border-gray-100 rounded-lg p-3 text-sm hover:border-boxing/30 hover:bg-gray-50"
                         >
                           <Link href={`/fixtures/${bracket.id}`} className="min-w-0 flex-1">
-                            <p className="font-medium text-navy">{bracket.name}</p>
+                            <p className="font-medium text-navy">{displayName}</p>
                             <p className="text-gray-500 text-xs mt-0.5">
                               {roster?.fighters.length ?? 0} fighter
                               {(roster?.fighters.length ?? 0) === 1 ? "" : "s"}
@@ -256,7 +266,7 @@ export default async function EventDetailPage({
                             {canDeleteBracketAccess && (
                               <DeleteFixtureButton
                                 bracketId={bracket.id}
-                                bracketName={bracket.name}
+                                bracketName={displayName}
                                 compact
                               />
                             )}

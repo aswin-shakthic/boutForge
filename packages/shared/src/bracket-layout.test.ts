@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  formatFixtureBracketName,
+  getBracketDisplayName,
   getBracketMatchMarginTop,
   getMatchGameLabel,
   getRoundShortLabel,
@@ -154,5 +156,36 @@ describe("groupBracketsByEvent", () => {
     expect(groups[0].title).toBe("Spring Open");
     expect(groups[0].sections).toHaveLength(1);
     expect(groups[1].title).toBe("Winter Classic");
+  });
+});
+
+describe("formatFixtureBracketName", () => {
+  it("appends birth years when both are present", () => {
+    expect(
+      formatFixtureBracketName({
+        categoryName: "Cub 1",
+        gender: "male",
+        weightClassName: "16-18 kg",
+        birthYearFrom: 2021,
+        birthYearTo: 2020,
+      })
+    ).toBe("Cub 1 male 16-18 kg (2020/2021)");
+  });
+
+  it("falls back to stored name when category metadata is missing", () => {
+    expect(
+      getBracketDisplayName({
+        id: "1",
+        name: "Cub 1 male 16-18 kg",
+        format: "progressive_knockout",
+        status: "published",
+        scheduled_date: null,
+        created_at: "2026-01-01",
+        event_id: "event-1",
+        gender: null,
+        age_category_id: null,
+        weight_class_id: null,
+      })
+    ).toBe("Cub 1 male 16-18 kg");
   });
 });

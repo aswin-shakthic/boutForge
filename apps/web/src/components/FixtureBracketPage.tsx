@@ -22,12 +22,14 @@ export function FixtureBracketPage({
   fighters,
   canRecord,
   canEdit,
+  displayName,
 }: {
   bracket: Bracket;
   bouts: Bout[];
   fighters: Fighter[];
   canRecord: boolean;
   canEdit: boolean;
+  displayName?: string;
 }) {
   const searchParams = useSearchParams();
   const shouldPrint = searchParams.get("print") === "1";
@@ -45,6 +47,7 @@ export function FixtureBracketPage({
       fighters={fighters}
       canRecord={canRecord}
       canEdit={canEdit}
+      displayName={displayName}
     />
   );
 }

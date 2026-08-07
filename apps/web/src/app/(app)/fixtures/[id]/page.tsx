@@ -15,7 +15,7 @@ export default async function FixtureDetailPage({
 }) {
   const { id } = await params;
   const { supabase, membership, clubId, isPlatformAdmin } = await getAppContext();
-  const { bracket, bouts } = await getBracketWithBouts(supabase, id);
+  const { bracket, bouts, displayName } = await getBracketWithBouts(supabase, id);
 
   const poolClubIds = new Set<string>();
   if (clubId) poolClubIds.add(clubId);
@@ -71,7 +71,7 @@ export default async function FixtureDetailPage({
             {canDelete && (
               <DeleteFixtureButton
                 bracketId={bracket.id}
-                bracketName={bracket.name}
+                bracketName={displayName}
                 compact
               />
             )}
@@ -85,6 +85,7 @@ export default async function FixtureDetailPage({
           fighters={fighters}
           canRecord={canRecord}
           canEdit={canEdit}
+          displayName={displayName}
         />
       </Suspense>
       {canDelete && (
@@ -93,7 +94,7 @@ export default async function FixtureDetailPage({
           <p className="text-sm text-gray-500">
             Deleting this fixture removes all bouts and results in this bracket.
           </p>
-          <DeleteFixtureButton bracketId={bracket.id} bracketName={bracket.name} />
+          <DeleteFixtureButton bracketId={bracket.id} bracketName={displayName} />
         </div>
       )}
     </div>

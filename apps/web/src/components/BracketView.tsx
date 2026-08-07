@@ -422,6 +422,7 @@ export function BracketView({
   canRecord,
   canEdit = false,
   isDemo = false,
+  displayName,
 }: {
   bracket: Bracket;
   bouts: Bout[];
@@ -429,12 +430,14 @@ export function BracketView({
   canRecord: boolean;
   canEdit?: boolean;
   isDemo?: boolean;
+  displayName?: string;
 }) {
   const router = useRouter();
   const supabase = createClient();
   const [bouts, setBouts] = useState(initialBouts);
   const [selectedBout, setSelectedBout] = useState<Bout | null>(null);
-  const [bracketName, setBracketName] = useState(bracket.name);
+  const resolvedDisplayName = displayName ?? bracket.name;
+  const [bracketName, setBracketName] = useState(resolvedDisplayName);
   const [savingName, setSavingName] = useState(false);
   const { isPending, start, end } = usePendingLoads();
 
@@ -443,8 +446,8 @@ export function BracketView({
   }, [initialBouts]);
 
   useEffect(() => {
-    setBracketName(bracket.name);
-  }, [bracket.name]);
+    setBracketName(resolvedDisplayName);
+  }, [resolvedDisplayName]);
 
   const { rounds } = useMemo(() => organizeBoutsByRound(bouts), [bouts]);
 
@@ -493,7 +496,7 @@ export function BracketView({
       : bracketName;
 
   async function saveBracketName() {
-    if (isDemo || !canEdit || bracketName.trim() === bracket.name) return;
+    if (isDemo || !canEdit || bracketName.trim() === resolvedDisplayName) return;
     setSavingName(true);
     start();
     try {
@@ -523,7 +526,7 @@ export function BracketView({
                   type="button"
                   className="btn-secondary text-sm gap-2"
                   onClick={saveBracketName}
-                  disabled={savingName || bracketName.trim() === bracket.name}
+                  disabled={savingName || bracketName.trim() === resolvedDisplayName}
                   title="Save bracket name"
                 >
                   <Check className="h-4 w-4 shrink-0" aria-hidden />

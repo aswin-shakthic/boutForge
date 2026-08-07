@@ -1,4 +1,4 @@
-import { groupBracketsByEvent, type BracketListItem } from "@boutforge/shared";
+import { getBracketDisplayName, groupBracketsByEvent, type BracketListItem } from "@boutforge/shared";
 import { DeleteFixtureButton } from "@/components/DeleteFixtureButton";
 import { IconAction } from "@/components/ui/IconAction";
 
@@ -62,14 +62,16 @@ export function FixturesGroupedList({
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-2">
-                  {section.brackets.map((bracket) => (
+                  {section.brackets.map((bracket) => {
+                    const displayName = getBracketDisplayName(bracket);
+                    return (
                     <article
                       key={bracket.id}
                       className="card hover:border-boxing transition-colors flex flex-col gap-4"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <h4 className="font-semibold text-navy">{bracket.name}</h4>
+                          <h4 className="font-semibold text-navy">{displayName}</h4>
                           <p className="text-sm text-gray-500 mt-1 capitalize">
                             {formatLabel(bracket.format)} · {formatLabel(bracket.status)}
                             {bracket.scheduled_date ? ` · ${bracket.scheduled_date}` : ""}
@@ -99,7 +101,7 @@ export function FixturesGroupedList({
                         {canDelete && (
                           <DeleteFixtureButton
                             bracketId={bracket.id}
-                            bracketName={bracket.name}
+                            bracketName={displayName}
                             compact
                           />
                         )}
@@ -111,7 +113,8 @@ export function FixturesGroupedList({
                         />
                       </div>
                     </article>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             ))}

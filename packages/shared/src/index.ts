@@ -5,4 +5,5 @@ export * from "./permissions";
 export * from "./bracket-engine";
 export * from "./fixture-wizard";
 export * from "./bracket-layout";
+export * from "./bout-display";
 export * from "./event-categories";

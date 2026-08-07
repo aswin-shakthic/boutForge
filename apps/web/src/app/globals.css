@@ -190,6 +190,46 @@ body {
   .bracket-participant-table td:first-child {
     @apply w-10 text-gray-500;
   }
+
+  .event-print-section {
+    @apply space-y-4;
+  }
+
+  .event-print-section-title {
+    @apply text-lg font-semibold text-navy border-b border-gray-200 pb-2;
+  }
+
+  .event-print-round {
+    @apply space-y-2;
+  }
+
+  .event-print-round-title {
+    @apply text-sm font-semibold uppercase tracking-wide text-gray-500;
+  }
+
+  .event-print-table-wrap {
+    @apply border border-gray-200 rounded-lg bg-white overflow-hidden;
+  }
+
+  .event-print-table {
+    @apply w-full border-collapse text-sm;
+  }
+
+  .event-print-table thead {
+    @apply bg-gray-50 border-b border-gray-200;
+  }
+
+  .event-print-table th {
+    @apply px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-gray-500;
+  }
+
+  .event-print-table td {
+    @apply px-3 py-2 border-t border-gray-100 text-gray-800 align-top;
+  }
+
+  .event-print-table td:first-child {
+    @apply whitespace-nowrap text-gray-500;
+  }
 }
 
 @media print {
@@ -240,6 +280,19 @@ body {
   }
 
   .bracket-participant-table-wrap {
+    break-inside: avoid;
+  }
+
+  .event-print-section {
+    break-inside: avoid-page;
+    page-break-inside: avoid;
+  }
+
+  .event-print-round {
+    break-inside: avoid;
+  }
+
+  .event-print-table-wrap {
     break-inside: avoid;
   }
 }

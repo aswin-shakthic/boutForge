@@ -38,6 +38,7 @@ import {
   eventConfigFromWizardState,
   ensureCompleteEventCategoryConfig,
   seedWeightClassDrafts,
+  formatFixtureBracketName,
   clearSectionFighterSelection,
   addFightersToSectionSelection,
   filterFightersForAssignment,
@@ -89,7 +90,13 @@ function defaultSectionName(section: {
   category: CategoryDraft;
   weightClass: WeightClassDraft;
 }) {
-  return `${section.category.name} ${section.weightClass.gender} ${section.weightClass.name}`.trim();
+  return formatFixtureBracketName({
+    categoryName: section.category.name,
+    gender: section.weightClass.gender,
+    weightClassName: section.weightClass.name,
+    birthYearFrom: section.category.birth_year_from,
+    birthYearTo: section.category.birth_year_to,
+  });
 }
 
 function defaultSectionConfig(section: {

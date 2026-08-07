@@ -27,6 +27,9 @@ import {
   type FighterFormInput,
   type Gender,
   type BracketPreviewBout,
+  buildEventPrintSections,
+  getBracketDisplayName,
+  type EventPrintSection,
 } from "@boutforge/shared";
 import type {
   AgeCategory,
@@ -865,6 +868,9 @@ export async function regenerateAllProgressiveKnockoutBrackets(
   return results;
 }
 
+const BRACKET_LIST_SELECT =
+  "*, age_category:age_categories(name, birth_year_from, birth_year_to), weight_class:weight_classes(name, gender), event:events(id, name, date, venue, status)";
+
 export async function createBracket(
   supabase: SupabaseClient,
   clubId: string,
@@ -928,12 +934,92 @@ export async function getBracketsByEvent(
 ): Promise<BracketListItem[]> {
   const { data } = await supabase
     .from("brackets")
-    .select(
-      "*, age_category:age_categories(name), weight_class:weight_classes(name, gender), event:events(id, name, date, venue, status)"
-    )
+    .select(BRACKET_LIST_SELECT)
     .eq("event_id", eventId)
     .order("created_at", { ascending: false });
   return (data ?? []) as BracketListItem[];
+}
+
+export type EventMatchPrintData = {
+  event: Pick<Event, "id" | "name" | "date" | "venue">;
+  sections: EventPrintSection[];
+};
+
+export async function getEventMatchPrintData(
+  supabase: SupabaseClient,
+  eventId: string
+): Promise<EventMatchPrintData> {
+  const [{ data: event }, brackets] = await Promise.all([
+    supabase.from("events").select("id, name, date, venue").eq("id", eventId).single(),
+    getBracketsByEvent(supabase, eventId),
+  ]);
+
+  if (!event) {
+    throw new Error("Event not found");
+  }
+
+  if (brackets.length === 0) {
+    return { event, sections: [] };
+  }
+
+  const bracketIds = brackets.map((bracket) => bracket.id);
+  const { data: boutsRaw, error: boutsError } = await supabase
+    .from("bouts")
+    .select(
+      "*, fighter_a:fighters!bouts_fighter_a_id_fkey(*, club:clubs(id, name)), fighter_b:fighters!bouts_fighter_b_id_fkey(*, club:clubs(id, name))"
+    )
+    .in("bracket_id", bracketIds)
+    .order("round_number")
+    .order("bout_order");
+  if (boutsError) throw boutsError;
+
+  const boutsByBracketId = new Map<string, Bout[]>();
+  const fighterIds = new Set<string>();
+
+  for (const row of boutsRaw ?? []) {
+    const bout = normalizeBoutEmbeds(row as Record<string, unknown>);
+    if (!bout.bracket_id) continue;
+    const list = boutsByBracketId.get(bout.bracket_id) ?? [];
+    list.push(bout);
+    boutsByBracketId.set(bout.bracket_id, list);
+    if (bout.fighter_a_id) fighterIds.add(bout.fighter_a_id);
+    if (bout.fighter_b_id) fighterIds.add(bout.fighter_b_id);
+  }
+
+  const fighterPoolsByBracketId = new Map<string, Fighter[]>();
+  for (const bracketId of bracketIds) {
+    fighterPoolsByBracketId.set(bracketId, []);
+  }
+
+  if (fighterIds.size > 0) {
+    const { data: fighters } = await supabase
+      .from("fighters")
+      .select("*, club:clubs(id, name)")
+      .in("id", [...fighterIds]);
+
+    const fighterMap = new Map((fighters ?? []).map((fighter) => [fighter.id, fighter as Fighter]));
+
+    for (const bracketId of bracketIds) {
+      const bracketBouts = boutsByBracketId.get(bracketId) ?? [];
+      const pool = new Map<string, Fighter>();
+      for (const bout of bracketBouts) {
+        if (bout.fighter_a_id) {
+          const fighter = fighterMap.get(bout.fighter_a_id);
+          if (fighter) pool.set(fighter.id, fighter);
+        }
+        if (bout.fighter_b_id) {
+          const fighter = fighterMap.get(bout.fighter_b_id);
+          if (fighter) pool.set(fighter.id, fighter);
+        }
+      }
+      fighterPoolsByBracketId.set(bracketId, [...pool.values()]);
+    }
+  }
+
+  return {
+    event,
+    sections: buildEventPrintSections(brackets, boutsByBracketId, fighterPoolsByBracketId),
+  };
 }
 
 export type EventBracketRosterSection = {
@@ -1008,7 +1094,7 @@ export async function getEventBracketRosters(
 
     return {
       bracketId: bracket.id,
-      bracketName: bracket.name,
+      bracketName: getBracketDisplayName(bracket),
       title: `${bracket.age_category?.name ?? "Category"} · ${
         bracket.gender ?? bracket.weight_class?.gender ?? ""
       } · ${bracket.weight_class?.name ?? "Weight class"}`,
@@ -1023,9 +1109,7 @@ export async function getBrackets(
 ): Promise<BracketListItem[]> {
   const { data } = await supabase
     .from("brackets")
-    .select(
-      "*, age_category:age_categories(name), weight_class:weight_classes(name, gender), event:events(id, name, date, venue, status)"
-    )
+    .select(BRACKET_LIST_SELECT)
     .eq("club_id", clubId)
     .order("created_at", { ascending: false });
   return (data ?? []) as BracketListItem[];
@@ -1034,10 +1118,10 @@ export async function getBrackets(
 export async function getBracketWithBouts(
   supabase: SupabaseClient,
   bracketId: string
-): Promise<{ bracket: Bracket; bouts: Bout[] }> {
-  const { data: bracket } = await supabase
+): Promise<{ bracket: Bracket; bouts: Bout[]; displayName: string }> {
+  const { data: bracketRow } = await supabase
     .from("brackets")
-    .select("*")
+    .select(BRACKET_LIST_SELECT)
     .eq("id", bracketId)
     .single();
 
@@ -1051,7 +1135,8 @@ export async function getBracketWithBouts(
     .order("bout_order");
 
   return {
-    bracket: bracket as Bracket,
+    bracket: bracketRow as Bracket,
+    displayName: getBracketDisplayName(bracketRow as BracketListItem),
     bouts: (bouts ?? []).map((row) => normalizeBoutEmbeds(row as Record<string, unknown>)),
   };
 }
