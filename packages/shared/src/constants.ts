@@ -132,6 +132,21 @@ export function getAgeFromDob(dob: string, competitionYear?: number): number {
   return year - birthYear;
 }
 
+export function parseBirthYear(value: string | number): number | null {
+  const year =
+    typeof value === "number" ? value : parseInt(String(value).trim(), 10);
+  if (!Number.isInteger(year)) return null;
+
+  const currentYear = new Date().getFullYear();
+  if (year < 1900 || year > currentYear) return null;
+
+  return year;
+}
+
+export function dobFromBirthYear(birthYear: number): string {
+  return `${birthYear}-01-01`;
+}
+
 export function classifyAgeCategory(
   dob: string,
   ageCategories: AgeCategory[],

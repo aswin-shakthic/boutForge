@@ -44,8 +44,21 @@ Deno.serve(async (req) => {
       const lastName = parts.slice(1).join(" ") || firstName;
       const gender = (row.gender ?? "").trim().toLowerCase();
 
-      if (!firstName || !row.dob || !gender || !row.weight_kg) {
+      if (!firstName || !row.birth_year || !gender || !row.weight_kg) {
         errors.push(`Row ${i + 1}: Missing required fields`);
+        continue;
+      }
+
+      const birthYear = parseInt(String(row.birth_year).trim(), 10);
+      const currentYear = new Date().getFullYear();
+      if (
+        !Number.isInteger(birthYear) ||
+        birthYear < 1900 ||
+        birthYear > currentYear
+      ) {
+        errors.push(
+          `Row ${i + 1}: birth_year must be a whole year between 1900 and ${currentYear}`
+        );
         continue;
       }
 
@@ -59,8 +72,9 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      const birthYear = new Date(row.dob).getFullYear();
-      const age = new Date().getFullYear() - birthYear;
+      const dob = `${birthYear}-01-01`;
+      const age = currentYear - birthYear;
+
       const ageCategory = (ageCategories ?? []).find(
         (c: { min_age: number; max_age: number }) =>
           age >= c.min_age && age <= c.max_age
@@ -85,7 +99,7 @@ Deno.serve(async (req) => {
         club_id,
         first_name: firstName,
         last_name: lastName,
-        dob: row.dob,
+        dob,
         gender,
         weight_kg: row.weight_kg,
         age_category_id: ageCategory?.id ?? null,

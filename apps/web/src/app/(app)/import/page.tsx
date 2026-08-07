@@ -3,13 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { getUserClubs, importFightersFromCSV } from "@boutforge/api";
-import { canImportFighters } from "@boutforge/shared";
+import { canImportFighters, parseBirthYear } from "@boutforge/shared";
 import type { ClubMember } from "@boutforge/shared";
 import { ClubSelector } from "@/components/ClubSelector";
 
 function parseCSV(text: string): Array<{
   name: string;
-  dob: string;
+  birth_year: number;
   gender: string;
   weight_kg: number;
   club_name?: string;
@@ -19,7 +19,9 @@ function parseCSV(text: string): Array<{
 
   const header = lines[0].toLowerCase().split(",").map((h) => h.trim());
   const nameIdx = header.findIndex((h) => h === "name");
-  const dobIdx = header.findIndex((h) => h === "dob" || h === "date_of_birth");
+  const birthYearIdx = header.findIndex(
+    (h) => h === "birth_year" || h === "birthyear" || h === "year"
+  );
   const genderIdx = header.findIndex((h) => h === "gender" || h === "sex");
   const weightIdx = header.findIndex(
     (h) => h === "weight_kg" || h === "weight"
@@ -29,9 +31,12 @@ function parseCSV(text: string): Array<{
   return lines.slice(1).map((line) => {
     const cols = line.split(",").map((c) => c.trim());
     const clubName = clubIdx >= 0 ? cols[clubIdx] : undefined;
+    const birthYearRaw = birthYearIdx >= 0 ? cols[birthYearIdx] ?? "" : "";
+    const birthYear = parseBirthYear(birthYearRaw) ?? 0;
+
     return {
       name: cols[nameIdx] ?? "",
-      dob: cols[dobIdx] ?? "",
+      birth_year: birthYear,
       gender: cols[genderIdx] ?? "",
       weight_kg: parseFloat(cols[weightIdx] ?? "0"),
       club_name: clubName || undefined,
@@ -140,18 +145,18 @@ export default function ImportPage() {
         <p className="text-sm text-gray-500">
           Upload a CSV with columns:{" "}
           <code className="bg-gray-100 px-1 rounded">
-            name, dob, gender, weight_kg
+            name, birth_year, gender, weight_kg
           </code>{" "}
           and optional{" "}
           <code className="bg-gray-100 px-1 rounded">club_name</code>.
         </p>
 
         <div className="bg-gray-50 p-4 rounded-lg text-xs font-mono text-gray-600 overflow-x-auto">
-          name,dob,gender,weight_kg,club_name
+          name,birth_year,gender,weight_kg,club_name
           <br />
-          Rahul Sharma,2008-03-15,male,58,Mumbai Warriors
+          Rahul Sharma,2008,male,58,Mumbai Warriors
           <br />
-          Amit Patel,2009-07-22,male,59,
+          Amit Patel,2009,male,59,
         </div>
 
         <p className="text-xs text-gray-500">

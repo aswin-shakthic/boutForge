@@ -3,7 +3,9 @@ import {
   classifyAgeCategory,
   classifyWeightClass,
   canImportFighters,
+  dobFromBirthYear,
   generateBracketBouts,
+  parseBirthYear,
   type BracketInput,
   type BoutResultInput,
   type EventInput,
@@ -727,7 +729,7 @@ export async function importFightersFromCSV(
   defaultClubId: string,
   rows: Array<{
     name: string;
-    dob: string;
+    birth_year: number;
     gender: string;
     weight_kg: number;
     club_name?: string;
@@ -785,10 +787,20 @@ export async function importFightersFromCSV(
     const lastName = parts.slice(1).join(" ") || firstName;
     const gender = row.gender.trim().toLowerCase();
 
-    if (!firstName || !row.dob || !gender || !row.weight_kg) {
+    if (!firstName || !gender || !row.weight_kg) {
       errors.push(`Row ${i + 1}: Missing required fields`);
       continue;
     }
+
+    const birthYear = parseBirthYear(row.birth_year);
+    if (birthYear === null) {
+      errors.push(
+        `Row ${i + 1}: birth_year must be a whole year between 1900 and ${new Date().getFullYear()}`
+      );
+      continue;
+    }
+
+    const dob = dobFromBirthYear(birthYear);
 
     if (gender !== "male" && gender !== "female") {
       errors.push(`Row ${i + 1}: Gender must be male or female`);
@@ -800,7 +812,7 @@ export async function importFightersFromCSV(
       continue;
     }
 
-    const ageCategory = classifyAgeCategory(row.dob, ageCategories);
+    const ageCategory = classifyAgeCategory(dob, ageCategories);
     const weightClass = ageCategory
       ? classifyWeightClass(row.weight_kg, gender, ageCategory.id, weightClasses)
       : null;
@@ -809,7 +821,7 @@ export async function importFightersFromCSV(
       club_id: targetClubId,
       first_name: firstName,
       last_name: lastName,
-      dob: row.dob,
+      dob,
       gender,
       weight_kg: row.weight_kg,
       age_category_id: ageCategory?.id ?? null,
