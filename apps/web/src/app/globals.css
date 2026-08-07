@@ -275,8 +275,23 @@ body {
     display: none !important;
   }
 
-  .bracket-fixture-name-print {
-    display: block !important;
+  .bracket-fixture-name-text,
+  .bracket-fixture-name-text span,
+  .event-print-table td,
+  .event-print-table th,
+  .event-print-section-title,
+  .event-print-round-title,
+  .bracket-participant-table td,
+  .bracket-participant-table th {
+    color: #111827 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .bracket-fixture-name-text span {
+    overflow: visible !important;
+    text-overflow: clip !important;
+    white-space: normal !important;
   }
 
   .bracket-participant-table-wrap {
@@ -294,5 +309,6 @@ body {
 
   .event-print-table-wrap {
     break-inside: avoid;
+    overflow: visible !important;
   }
 }

@@ -299,17 +299,25 @@ function BracketFixtureRow({
               </option>
             ))}
           </select>
-        ) : (
-          <span
-            className="bracket-fixture-name-text bracket-fixture-name-print"
-            title={clubName ? `${displayName} · ${clubName}` : displayName}
-          >
-            <span className="block truncate">{displayName}</span>
-            {clubName ? (
-              <span className="block truncate text-[11px] text-gray-500">{clubName}</span>
-            ) : null}
+        ) : null}
+        <span
+          className={[
+            "bracket-fixture-name-text",
+            editable ? "hidden print:block" : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+          title={clubName ? `${displayName} · ${clubName}` : displayName}
+        >
+          <span className="block truncate print:whitespace-normal print:overflow-visible">
+            {displayName}
           </span>
-        )}
+          {clubName ? (
+            <span className="block truncate text-[11px] text-gray-500 print:whitespace-normal print:overflow-visible">
+              {clubName}
+            </span>
+          ) : null}
+        </span>
       </div>
       <div className="bracket-fixture-score">{slotScoreMark(bout, slot)}</div>
     </div>
