@@ -70,6 +70,8 @@ export interface AgeCategory {
   code: string;
   min_age: number;
   max_age: number;
+  birth_year_from: number | null;
+  birth_year_to: number | null;
   is_custom: boolean;
   club_id: string | null;
 }

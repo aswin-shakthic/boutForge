@@ -3,6 +3,7 @@ import {
   classifyAgeCategory,
   classifyWeightClass,
   canImportFighters,
+  ageRangeFromBirthYears,
   dobFromBirthYear,
   generateBracketBouts,
   getImportableClubLabel,
@@ -12,6 +13,7 @@ import {
   type BoutResultInput,
   type EventInput,
   type FighterFormInput,
+  type Gender,
 } from "@boutforge/shared";
 import type {
   AgeCategory,
@@ -174,6 +176,127 @@ export async function getWeightClasses(
 ): Promise<WeightClass[]> {
   const { data } = await supabase.from("weight_classes").select("*").eq("is_enabled", true);
   return (data ?? []) as WeightClass[];
+}
+
+export async function createFixtureAgeCategory(
+  supabase: SupabaseClient,
+  clubId: string,
+  input: {
+    name: string;
+    birth_year_from: number;
+    birth_year_to: number;
+    competition_year?: number;
+  }
+): Promise<AgeCategory> {
+  const range = ageRangeFromBirthYears(
+    input.birth_year_from,
+    input.birth_year_to,
+    input.competition_year
+  );
+  const code = input.name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_|_$/g, "")
+    .slice(0, 40);
+
+  const { data, error } = await supabase
+    .from("age_categories")
+    .insert({
+      name: input.name.trim(),
+      code: code || `cat_${Date.now()}`,
+      min_age: range.min_age,
+      max_age: range.max_age,
+      birth_year_from: range.birth_year_from,
+      birth_year_to: range.birth_year_to,
+      is_custom: true,
+      club_id: clubId,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data as AgeCategory;
+}
+
+export async function updateFixtureAgeCategory(
+  supabase: SupabaseClient,
+  categoryId: string,
+  input: {
+    birth_year_from: number;
+    birth_year_to: number;
+    competition_year?: number;
+  }
+): Promise<AgeCategory> {
+  const range = ageRangeFromBirthYears(
+    input.birth_year_from,
+    input.birth_year_to,
+    input.competition_year
+  );
+
+  const { data, error } = await supabase
+    .from("age_categories")
+    .update({
+      birth_year_from: range.birth_year_from,
+      birth_year_to: range.birth_year_to,
+      min_age: range.min_age,
+      max_age: range.max_age,
+    })
+    .eq("id", categoryId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data as AgeCategory;
+}
+
+export async function createFixtureWeightClass(
+  supabase: SupabaseClient,
+  clubId: string,
+  input: {
+    name: string;
+    gender: Gender;
+    age_category_id: string;
+    min_weight_kg: number | null;
+    max_weight_kg: number | null;
+  }
+): Promise<WeightClass> {
+  const { data, error } = await supabase
+    .from("weight_classes")
+    .insert({
+      name: input.name.trim(),
+      gender: input.gender,
+      age_category_id: input.age_category_id,
+      min_weight_kg: input.min_weight_kg,
+      max_weight_kg: input.max_weight_kg,
+      is_custom: true,
+      club_id: clubId,
+      is_enabled: true,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data as WeightClass;
+}
+
+export async function assignFightersToFixtureSection(
+  supabase: SupabaseClient,
+  fighterIds: string[],
+  ageCategoryId: string,
+  weightClassId: string
+): Promise<void> {
+  if (fighterIds.length === 0) return;
+
+  const { error } = await supabase
+    .from("fighters")
+    .update({
+      age_category_id: ageCategoryId,
+      weight_class_id: weightClassId,
+    })
+    .in("id", fighterIds);
+
+  if (error) throw error;
 }
 
 export async function getFighters(

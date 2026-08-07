@@ -47,6 +47,8 @@ const youth = {
   code: "youth",
   min_age: 15,
   max_age: 18,
+  birth_year_from: null,
+  birth_year_to: null,
   is_custom: false,
   club_id: null,
 };
@@ -71,6 +73,8 @@ const elite = {
   code: "elite",
   min_age: 19,
   max_age: 40,
+  birth_year_from: null,
+  birth_year_to: null,
   is_custom: false,
   club_id: null,
 };

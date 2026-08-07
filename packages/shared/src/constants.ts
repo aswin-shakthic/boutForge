@@ -33,9 +33,9 @@ export const BOUT_METHOD_LABELS: Record<string, string> = {
 };
 
 export const DEFAULT_AGE_CATEGORIES: Omit<AgeCategory, "id" | "club_id">[] = [
-  { name: "Sub-Junior", code: "sub_junior", min_age: 13, max_age: 14, is_custom: false },
-  { name: "Youth", code: "youth", min_age: 15, max_age: 18, is_custom: false },
-  { name: "Elite", code: "elite", min_age: 19, max_age: 40, is_custom: false },
+  { name: "Sub-Junior", code: "sub_junior", min_age: 13, max_age: 14, birth_year_from: null, birth_year_to: null, is_custom: false },
+  { name: "Youth", code: "youth", min_age: 15, max_age: 18, birth_year_from: null, birth_year_to: null, is_custom: false },
+  { name: "Elite", code: "elite", min_age: 19, max_age: 40, birth_year_from: null, birth_year_to: null, is_custom: false },
 ];
 
 export interface WeightClassSeed {
@@ -125,6 +125,98 @@ export const BFI_WEIGHT_CLASSES: WeightClassSeed[] = [
   { name: "67 kg", gender: "female", age_code: "sub_junior", min_weight_kg: 64.01, max_weight_kg: 67 },
   { name: "+67 kg", gender: "female", age_code: "sub_junior", min_weight_kg: 67.01, max_weight_kg: null },
 ];
+
+export function getBirthYearFromDob(dob: string): number {
+  return new Date(dob).getFullYear();
+}
+
+export function ageRangeFromBirthYears(
+  birthYearFrom: number,
+  birthYearTo: number,
+  competitionYear?: number
+): { min_age: number; max_age: number; birth_year_from: number; birth_year_to: number } {
+  const year = competitionYear ?? new Date().getFullYear();
+  const from = Math.min(birthYearFrom, birthYearTo);
+  const to = Math.max(birthYearFrom, birthYearTo);
+  return {
+    birth_year_from: from,
+    birth_year_to: to,
+    min_age: year - to,
+    max_age: year - from,
+  };
+}
+
+export function birthYearsFromAgeRange(
+  minAge: number,
+  maxAge: number,
+  competitionYear?: number
+): { birth_year_from: number; birth_year_to: number } {
+  const year = competitionYear ?? new Date().getFullYear();
+  return {
+    birth_year_from: year - maxAge,
+    birth_year_to: year - minAge,
+  };
+}
+
+export function resolveCategoryBirthYears(
+  category: {
+    min_age: number;
+    max_age: number;
+    birth_year_from: number | null;
+    birth_year_to: number | null;
+  },
+  competitionYear?: number
+): { birth_year_from: number; birth_year_to: number } {
+  if (category.birth_year_from != null && category.birth_year_to != null) {
+    return {
+      birth_year_from: Math.min(category.birth_year_from, category.birth_year_to),
+      birth_year_to: Math.max(category.birth_year_from, category.birth_year_to),
+    };
+  }
+  return birthYearsFromAgeRange(category.min_age, category.max_age, competitionYear);
+}
+
+export function fighterMatchesBirthYearCategory(
+  dob: string,
+  birthYearFrom: number,
+  birthYearTo: number
+): boolean {
+  const birthYear = getBirthYearFromDob(dob);
+  const from = Math.min(birthYearFrom, birthYearTo);
+  const to = Math.max(birthYearFrom, birthYearTo);
+  return birthYear >= from && birthYear <= to;
+}
+
+export function fighterMatchesWeightClass(
+  fighter: { gender: Gender; weight_kg: number },
+  weightClass: {
+    gender: Gender;
+    min_weight_kg: number | null;
+    max_weight_kg: number | null;
+  }
+): boolean {
+  if (fighter.gender !== weightClass.gender) return false;
+  if (
+    weightClass.min_weight_kg !== null &&
+    fighter.weight_kg < weightClass.min_weight_kg
+  ) {
+    return false;
+  }
+  if (
+    weightClass.max_weight_kg !== null &&
+    fighter.weight_kg > weightClass.max_weight_kg
+  ) {
+    return false;
+  }
+  return true;
+}
+
+export function fixtureSectionKey(
+  categoryId: string,
+  weightClassId: string
+): string {
+  return `${categoryId}:${weightClassId}`;
+}
 
 export function getAgeFromDob(dob: string, competitionYear?: number): number {
   const year = competitionYear ?? new Date().getFullYear();
