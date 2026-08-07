@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getBracketsByEvent } from "@boutforge/api";
 import { getAppContext } from "@/lib/app-context";
+import { EventCategoriesEditor } from "@/components/EventCategoriesEditor";
 import { PublishEventButton } from "./PublishEventButton";
 
 export default async function EventDetailPage({
@@ -9,7 +10,7 @@ export default async function EventDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { supabase } = await getAppContext();
+  const { supabase, membership, profile } = await getAppContext();
 
   const { data: event } = await supabase
     .from("events")
@@ -20,6 +21,11 @@ export default async function EventDetailPage({
   if (!event) return <p>Event not found</p>;
 
   const brackets = await getBracketsByEvent(supabase, id);
+  const canEditEvent =
+    profile?.is_platform_admin ||
+    event.organizer_user_id === profile?.id ||
+    (membership?.club_id === event.organizer_club_id &&
+      (membership.role === "club_admin" || membership.role === "coach"));
 
   return (
     <div className="space-y-6">
@@ -49,6 +55,12 @@ export default async function EventDetailPage({
           </Link>
           {event.status === "draft" && <PublishEventButton eventId={event.id} />}
         </div>
+
+        {canEditEvent && (
+          <div className="border-t border-gray-100 pt-6">
+            <EventCategoriesEditor eventId={event.id} />
+          </div>
+        )}
 
         <div>
           <h2 className="font-semibold text-navy mb-3">Participating Clubs</h2>

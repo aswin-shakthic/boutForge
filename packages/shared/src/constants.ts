@@ -32,11 +32,82 @@ export const BOUT_METHOD_LABELS: Record<string, string> = {
   DRAW: "Draw",
 };
 
-export const DEFAULT_AGE_CATEGORIES: Omit<AgeCategory, "id" | "club_id">[] = [
-  { name: "Sub-Junior", code: "sub_junior", min_age: 13, max_age: 14, birth_year_from: null, birth_year_to: null, is_custom: false },
-  { name: "Youth", code: "youth", min_age: 15, max_age: 18, birth_year_from: null, birth_year_to: null, is_custom: false },
-  { name: "Elite", code: "elite", min_age: 19, max_age: 40, birth_year_from: null, birth_year_to: null, is_custom: false },
+/** Baseline competition year for stored platform birth-year examples (2026 → Sub-Junior 2012–2013). */
+export const BASELINE_COMPETITION_YEAR = 2026;
+
+export interface AgeCategoryTemplate {
+  name: string;
+  code: string;
+  /** birth_year_from = competitionYear + offset (null = open lower bound for Elite). */
+  birthYearFromOffset: number | null;
+  birthYearToOffset: number;
+  min_age: number;
+  max_age: number;
+}
+
+export const AGE_CATEGORY_TEMPLATES: AgeCategoryTemplate[] = [
+  {
+    name: "Sub-Junior",
+    code: "sub_junior",
+    birthYearFromOffset: -14,
+    birthYearToOffset: -13,
+    min_age: 13,
+    max_age: 14,
+  },
+  {
+    name: "Junior",
+    code: "junior",
+    birthYearFromOffset: -16,
+    birthYearToOffset: -15,
+    min_age: 15,
+    max_age: 16,
+  },
+  {
+    name: "Youth",
+    code: "youth",
+    birthYearFromOffset: -18,
+    birthYearToOffset: -17,
+    min_age: 17,
+    max_age: 18,
+  },
+  {
+    name: "Elite",
+    code: "elite",
+    birthYearFromOffset: null,
+    birthYearToOffset: -19,
+    min_age: 19,
+    max_age: 40,
+  },
 ];
+
+export function resolveTemplateBirthYears(
+  template: AgeCategoryTemplate,
+  competitionYear: number
+): { birth_year_from: number; birth_year_to: number } {
+  const birth_year_to = competitionYear + template.birthYearToOffset;
+  const birth_year_from =
+    template.birthYearFromOffset === null
+      ? 1900
+      : competitionYear + template.birthYearFromOffset;
+  return {
+    birth_year_from: Math.min(birth_year_from, birth_year_to),
+    birth_year_to: Math.max(birth_year_from, birth_year_to),
+  };
+}
+
+export const DEFAULT_AGE_CATEGORIES: Omit<AgeCategory, "id" | "club_id">[] =
+  AGE_CATEGORY_TEMPLATES.map((template) => {
+    const years = resolveTemplateBirthYears(template, BASELINE_COMPETITION_YEAR);
+    return {
+      name: template.name,
+      code: template.code,
+      min_age: template.min_age,
+      max_age: template.max_age,
+      birth_year_from: years.birth_year_from,
+      birth_year_to: years.birth_year_to,
+      is_custom: false,
+    };
+  });
 
 export interface WeightClassSeed {
   name: string;
@@ -46,85 +117,120 @@ export interface WeightClassSeed {
   max_weight_kg: number | null;
 }
 
-export const BFI_WEIGHT_CLASSES: WeightClassSeed[] = [
-  // Elite Male
-  { name: "46-49 kg", gender: "male", age_code: "elite", min_weight_kg: 46, max_weight_kg: 49 },
-  { name: "52 kg", gender: "male", age_code: "elite", min_weight_kg: 49.01, max_weight_kg: 52 },
-  { name: "56 kg", gender: "male", age_code: "elite", min_weight_kg: 52.01, max_weight_kg: 56 },
-  { name: "60 kg", gender: "male", age_code: "elite", min_weight_kg: 56.01, max_weight_kg: 60 },
-  { name: "64 kg", gender: "male", age_code: "elite", min_weight_kg: 60.01, max_weight_kg: 64 },
-  { name: "69 kg", gender: "male", age_code: "elite", min_weight_kg: 64.01, max_weight_kg: 69 },
-  { name: "75 kg", gender: "male", age_code: "elite", min_weight_kg: 69.01, max_weight_kg: 75 },
-  { name: "81 kg", gender: "male", age_code: "elite", min_weight_kg: 75.01, max_weight_kg: 81 },
-  { name: "91 kg", gender: "male", age_code: "elite", min_weight_kg: 81.01, max_weight_kg: 91 },
-  { name: "+91 kg", gender: "male", age_code: "elite", min_weight_kg: 91.01, max_weight_kg: null },
-  // Elite Female
-  { name: "48 kg", gender: "female", age_code: "elite", min_weight_kg: 45, max_weight_kg: 48 },
-  { name: "51 kg", gender: "female", age_code: "elite", min_weight_kg: 48.01, max_weight_kg: 51 },
-  { name: "54 kg", gender: "female", age_code: "elite", min_weight_kg: 51.01, max_weight_kg: 54 },
-  { name: "57 kg", gender: "female", age_code: "elite", min_weight_kg: 54.01, max_weight_kg: 57 },
-  { name: "60 kg", gender: "female", age_code: "elite", min_weight_kg: 57.01, max_weight_kg: 60 },
-  { name: "64 kg", gender: "female", age_code: "elite", min_weight_kg: 60.01, max_weight_kg: 64 },
-  { name: "69 kg", gender: "female", age_code: "elite", min_weight_kg: 64.01, max_weight_kg: 69 },
-  { name: "75 kg", gender: "female", age_code: "elite", min_weight_kg: 69.01, max_weight_kg: 75 },
-  { name: "81 kg", gender: "female", age_code: "elite", min_weight_kg: 75.01, max_weight_kg: 81 },
-  { name: "+81 kg", gender: "female", age_code: "elite", min_weight_kg: 81.01, max_weight_kg: null },
-  // Youth Male (same as elite for simplicity)
-  { name: "48 kg", gender: "male", age_code: "youth", min_weight_kg: null, max_weight_kg: 48 },
-  { name: "51 kg", gender: "male", age_code: "youth", min_weight_kg: 48.01, max_weight_kg: 51 },
-  { name: "54 kg", gender: "male", age_code: "youth", min_weight_kg: 51.01, max_weight_kg: 54 },
-  { name: "57 kg", gender: "male", age_code: "youth", min_weight_kg: 54.01, max_weight_kg: 57 },
-  { name: "60 kg", gender: "male", age_code: "youth", min_weight_kg: 57.01, max_weight_kg: 60 },
-  { name: "63 kg", gender: "male", age_code: "youth", min_weight_kg: 60.01, max_weight_kg: 63 },
-  { name: "66 kg", gender: "male", age_code: "youth", min_weight_kg: 63.01, max_weight_kg: 66 },
-  { name: "70 kg", gender: "male", age_code: "youth", min_weight_kg: 66.01, max_weight_kg: 70 },
-  { name: "75 kg", gender: "male", age_code: "youth", min_weight_kg: 70.01, max_weight_kg: 75 },
-  { name: "80 kg", gender: "male", age_code: "youth", min_weight_kg: 75.01, max_weight_kg: 80 },
-  { name: "+80 kg", gender: "male", age_code: "youth", min_weight_kg: 80.01, max_weight_kg: null },
-  // Youth Female
-  { name: "48 kg", gender: "female", age_code: "youth", min_weight_kg: null, max_weight_kg: 48 },
-  { name: "50 kg", gender: "female", age_code: "youth", min_weight_kg: 48.01, max_weight_kg: 50 },
-  { name: "52 kg", gender: "female", age_code: "youth", min_weight_kg: 50.01, max_weight_kg: 52 },
-  { name: "54 kg", gender: "female", age_code: "youth", min_weight_kg: 52.01, max_weight_kg: 54 },
-  { name: "57 kg", gender: "female", age_code: "youth", min_weight_kg: 54.01, max_weight_kg: 57 },
-  { name: "60 kg", gender: "female", age_code: "youth", min_weight_kg: 57.01, max_weight_kg: 60 },
-  { name: "63 kg", gender: "female", age_code: "youth", min_weight_kg: 60.01, max_weight_kg: 63 },
-  { name: "66 kg", gender: "female", age_code: "youth", min_weight_kg: 63.01, max_weight_kg: 66 },
-  { name: "70 kg", gender: "female", age_code: "youth", min_weight_kg: 66.01, max_weight_kg: 70 },
-  { name: "75 kg", gender: "female", age_code: "youth", min_weight_kg: 70.01, max_weight_kg: 75 },
-  { name: "80 kg", gender: "female", age_code: "youth", min_weight_kg: 75.01, max_weight_kg: 80 },
-  { name: "+80 kg", gender: "female", age_code: "youth", min_weight_kg: 80.01, max_weight_kg: null },
-  // Sub-Junior Male
-  { name: "33-35 kg", gender: "male", age_code: "sub_junior", min_weight_kg: 33, max_weight_kg: 35 },
-  { name: "37 kg", gender: "male", age_code: "sub_junior", min_weight_kg: 35.01, max_weight_kg: 37 },
-  { name: "40 kg", gender: "male", age_code: "sub_junior", min_weight_kg: 37.01, max_weight_kg: 40 },
-  { name: "43 kg", gender: "male", age_code: "sub_junior", min_weight_kg: 40.01, max_weight_kg: 43 },
-  { name: "46 kg", gender: "male", age_code: "sub_junior", min_weight_kg: 43.01, max_weight_kg: 46 },
-  { name: "49 kg", gender: "male", age_code: "sub_junior", min_weight_kg: 46.01, max_weight_kg: 49 },
-  { name: "52 kg", gender: "male", age_code: "sub_junior", min_weight_kg: 49.01, max_weight_kg: 52 },
-  { name: "55 kg", gender: "male", age_code: "sub_junior", min_weight_kg: 52.01, max_weight_kg: 55 },
-  { name: "58 kg", gender: "male", age_code: "sub_junior", min_weight_kg: 55.01, max_weight_kg: 58 },
-  { name: "61 kg", gender: "male", age_code: "sub_junior", min_weight_kg: 58.01, max_weight_kg: 61 },
-  { name: "64 kg", gender: "male", age_code: "sub_junior", min_weight_kg: 61.01, max_weight_kg: 64 },
-  { name: "67 kg", gender: "male", age_code: "sub_junior", min_weight_kg: 64.01, max_weight_kg: 67 },
-  { name: "70 kg", gender: "male", age_code: "sub_junior", min_weight_kg: 67.01, max_weight_kg: 70 },
-  { name: "+70 kg", gender: "male", age_code: "sub_junior", min_weight_kg: 70.01, max_weight_kg: null },
-  // Sub-Junior Female
-  { name: "31-33 kg", gender: "female", age_code: "sub_junior", min_weight_kg: 31, max_weight_kg: 33 },
-  { name: "35 kg", gender: "female", age_code: "sub_junior", min_weight_kg: 33.01, max_weight_kg: 35 },
-  { name: "37 kg", gender: "female", age_code: "sub_junior", min_weight_kg: 35.01, max_weight_kg: 37 },
-  { name: "40 kg", gender: "female", age_code: "sub_junior", min_weight_kg: 37.01, max_weight_kg: 40 },
-  { name: "43 kg", gender: "female", age_code: "sub_junior", min_weight_kg: 40.01, max_weight_kg: 43 },
-  { name: "46 kg", gender: "female", age_code: "sub_junior", min_weight_kg: 43.01, max_weight_kg: 46 },
-  { name: "49 kg", gender: "female", age_code: "sub_junior", min_weight_kg: 46.01, max_weight_kg: 49 },
-  { name: "52 kg", gender: "female", age_code: "sub_junior", min_weight_kg: 49.01, max_weight_kg: 52 },
-  { name: "55 kg", gender: "female", age_code: "sub_junior", min_weight_kg: 52.01, max_weight_kg: 55 },
-  { name: "58 kg", gender: "female", age_code: "sub_junior", min_weight_kg: 55.01, max_weight_kg: 58 },
-  { name: "61 kg", gender: "female", age_code: "sub_junior", min_weight_kg: 58.01, max_weight_kg: 61 },
-  { name: "64 kg", gender: "female", age_code: "sub_junior", min_weight_kg: 61.01, max_weight_kg: 64 },
-  { name: "67 kg", gender: "female", age_code: "sub_junior", min_weight_kg: 64.01, max_weight_kg: 67 },
-  { name: "+67 kg", gender: "female", age_code: "sub_junior", min_weight_kg: 67.01, max_weight_kg: null },
+type WeightRange = [label: string, min: number, max: number | null];
+
+function seedBothGenders(ageCode: string, ranges: WeightRange[]): WeightClassSeed[] {
+  const seeds: WeightClassSeed[] = [];
+  for (const gender of ["male", "female"] as Gender[]) {
+    for (const [label, min, max] of ranges) {
+      seeds.push({
+        name: label.endsWith("kg") ? label : `${label} kg`,
+        gender,
+        age_code: ageCode,
+        min_weight_kg: min,
+        max_weight_kg: max,
+      });
+    }
+  }
+  return seeds;
+}
+
+function seedGender(
+  ageCode: string,
+  gender: Gender,
+  ranges: WeightRange[]
+): WeightClassSeed[] {
+  return ranges.map(([label, min, max]) => ({
+    name: label.endsWith("kg") ? label : `${label} kg`,
+    gender,
+    age_code: ageCode,
+    min_weight_kg: min,
+    max_weight_kg: max,
+  }));
+}
+
+const SUB_JUNIOR_RANGES: WeightRange[] = [
+  ["30-33", 30, 33],
+  ["33-35", 33, 35],
+  ["35-37", 35, 37],
+  ["37-40", 37, 40],
+  ["40-43", 40, 43],
+  ["43-46", 43, 46],
+  ["46-49", 46, 49],
+  ["49-52", 49, 52],
+  ["52-55", 52, 55],
+  ["55-58", 55, 58],
+  ["58-61", 58, 61],
+  ["61-64", 61, 64],
+  ["64-67", 64, 67],
+  ["67-70", 67, 70],
+  ["+70", 70, null],
 ];
+
+const JUNIOR_RANGES: WeightRange[] = [
+  ["44-46", 44, 46],
+  ["46-48", 46, 48],
+  ["48-50", 48, 50],
+  ["50-52", 50, 52],
+  ["52-54", 52, 54],
+  ["54-57", 54, 57],
+  ["57-60", 57, 60],
+  ["60-63", 60, 63],
+  ["63-66", 63, 66],
+  ["66-70", 66, 70],
+  ["70-75", 70, 75],
+  ["75-80", 75, 80],
+  ["+80", 80, null],
+];
+
+const OPEN_MALE_RANGES: WeightRange[] = [
+  ["47-50", 47, 50],
+  ["50-55", 50, 55],
+  ["55-60", 55, 60],
+  ["60-65", 60, 65],
+  ["65-70", 65, 70],
+  ["70-75", 70, 75],
+  ["75-80", 75, 80],
+  ["80-85", 80, 85],
+  ["85-90", 85, 90],
+  ["+90", 90, null],
+];
+
+const OPEN_FEMALE_RANGES: WeightRange[] = [
+  ["45-48", 45, 48],
+  ["48-51", 48, 51],
+  ["51-54", 51, 54],
+  ["54-57", 54, 57],
+  ["57-60", 57, 60],
+  ["60-65", 60, 65],
+  ["65-70", 65, 70],
+  ["70-75", 70, 75],
+  ["75-80", 75, 80],
+  ["+80", 80, null],
+];
+
+export const BFI_WEIGHT_CLASSES: WeightClassSeed[] = [
+  ...seedBothGenders("sub_junior", SUB_JUNIOR_RANGES),
+  ...seedBothGenders("junior", JUNIOR_RANGES),
+  ...seedGender("youth", "male", OPEN_MALE_RANGES),
+  ...seedGender("youth", "female", OPEN_FEMALE_RANGES),
+  ...seedGender("elite", "male", OPEN_MALE_RANGES),
+  ...seedGender("elite", "female", OPEN_FEMALE_RANGES),
+];
+
+const WEIGHT_SEEDS_BY_AGE_CODE = BFI_WEIGHT_CLASSES.reduce<Map<string, WeightClassSeed[]>>(
+  (map, seed) => {
+    const list = map.get(seed.age_code);
+    if (list) list.push(seed);
+    else map.set(seed.age_code, [seed]);
+    return map;
+  },
+  new Map()
+);
+
+export function weightSeedsForAgeCode(ageCode: string): readonly WeightClassSeed[] {
+  return WEIGHT_SEEDS_BY_AGE_CODE.get(ageCode) ?? [];
+}
 
 export function getBirthYearFromDob(dob: string): number {
   return new Date(dob).getFullYear();
@@ -160,20 +266,31 @@ export function birthYearsFromAgeRange(
 
 export function resolveCategoryBirthYears(
   category: {
+    code?: string;
     min_age: number;
     max_age: number;
     birth_year_from: number | null;
     birth_year_to: number | null;
+    is_custom?: boolean;
   },
   competitionYear?: number
 ): { birth_year_from: number; birth_year_to: number } {
+  const year = competitionYear ?? new Date().getFullYear();
+  const template = category.code
+    ? AGE_CATEGORY_TEMPLATES.find((entry) => entry.code === category.code)
+    : undefined;
+
+  if (template && !category.is_custom) {
+    return resolveTemplateBirthYears(template, year);
+  }
+
   if (category.birth_year_from != null && category.birth_year_to != null) {
     return {
       birth_year_from: Math.min(category.birth_year_from, category.birth_year_to),
       birth_year_to: Math.max(category.birth_year_from, category.birth_year_to),
     };
   }
-  return birthYearsFromAgeRange(category.min_age, category.max_age, competitionYear);
+  return birthYearsFromAgeRange(category.min_age, category.max_age, year);
 }
 
 export function fighterMatchesBirthYearCategory(
@@ -204,11 +321,20 @@ export function fighterMatchesWeightClass(
   }
   if (
     weightClass.max_weight_kg !== null &&
-    fighter.weight_kg > weightClass.max_weight_kg
+    fighter.weight_kg >= weightClass.max_weight_kg
   ) {
     return false;
   }
   return true;
+}
+
+function weightClassSpan(wc: {
+  min_weight_kg: number | null;
+  max_weight_kg: number | null;
+}): number {
+  const min = wc.min_weight_kg ?? 0;
+  const max = wc.max_weight_kg ?? min + 1000;
+  return max - min;
 }
 
 export function fixtureSectionKey(
@@ -305,6 +431,29 @@ export function classifyAgeCategory(
   ageCategories: AgeCategory[],
   competitionYear?: number
 ): AgeCategory | null {
+  const byBirthYear = ageCategories
+    .map((category) => ({
+      category,
+      years: resolveCategoryBirthYears(category, competitionYear),
+    }))
+    .filter(({ years }) =>
+      fighterMatchesBirthYearCategory(
+        dob,
+        years.birth_year_from,
+        years.birth_year_to
+      )
+    );
+
+  if (byBirthYear.length > 0) {
+    byBirthYear.sort(
+      (a, b) =>
+        a.years.birth_year_to -
+        a.years.birth_year_from -
+        (b.years.birth_year_to - b.years.birth_year_from)
+    );
+    return byBirthYear[0].category;
+  }
+
   const age = getAgeFromDob(dob, competitionYear);
   return (
     ageCategories.find((c) => age >= c.min_age && age <= c.max_age) ?? null
@@ -322,10 +471,13 @@ export function classifyWeightClass(
       wc.gender === gender &&
       wc.age_category_id === ageCategoryId &&
       wc.is_enabled &&
-      (wc.min_weight_kg === null || weightKg >= wc.min_weight_kg) &&
-      (wc.max_weight_kg === null || weightKg <= wc.max_weight_kg)
+      fighterMatchesWeightClass({ gender, weight_kg: weightKg }, wc)
   );
-  return eligible[0] ?? null;
+
+  if (eligible.length === 0) return null;
+
+  eligible.sort((a, b) => weightClassSpan(a) - weightClassSpan(b));
+  return eligible[0];
 }
 
 export function fighterFullName(f: { first_name: string; last_name: string }): string {

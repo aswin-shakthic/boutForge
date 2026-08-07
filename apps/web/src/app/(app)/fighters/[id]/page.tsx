@@ -7,6 +7,7 @@ import {
   getFighterClubDisplayName,
   BOUT_METHOD_LABELS,
   participationRecord,
+  canManageFighters,
 } from "@boutforge/shared";
 import { getAppContext } from "@/lib/app-context";
 
@@ -16,7 +17,7 @@ export default async function FighterDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { supabase } = await getAppContext();
+  const { supabase, membership } = await getAppContext();
 
   const { data: fighter } = await supabase
     .from("fighters")
@@ -33,15 +34,24 @@ export default async function FighterDetailPage({
     getFighterOrganizerParticipations(supabase, id),
   ]);
 
+  const canEdit = membership ? canManageFighters(membership.role) : false;
+
   return (
     <div className="space-y-6">
-      <div>
-        <Link href="/fighters" className="text-boxing text-sm hover:underline">
-          ← Back to fighters
-        </Link>
-        <h1 className="text-2xl font-bold text-navy mt-2">
-          {fighterFullName(fighter)}
-        </h1>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <Link href="/fighters" className="text-boxing text-sm hover:underline">
+            ← Back to fighters
+          </Link>
+          <h1 className="text-2xl font-bold text-navy mt-2">
+            {fighterFullName(fighter)}
+          </h1>
+        </div>
+        {canEdit && (
+          <Link href={`/fighters/${id}/edit`} className="btn-secondary text-sm">
+            Edit fighter
+          </Link>
+        )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">

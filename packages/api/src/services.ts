@@ -9,6 +9,15 @@ import {
   getImportableClubLabel,
   parseBirthYear,
   resolveImportableClub,
+  buildDefaultEventCategoryConfig,
+  attachPlatformWeightIds,
+  parseEventCategoryConfig,
+  buildPlatformCategoryCatalog,
+  findPlatformWeightClass,
+  categoryResolveCacheKey,
+  weightResolveCacheKey,
+  type EventCategoryConfig,
+  type PlatformCategoryCatalog,
   type BracketInput,
   type BracketListItem,
   type BoutResultInput,
@@ -816,6 +825,281 @@ export async function reassignBracketFighter(
   await updateBoutFighter(supabase, boutId, slot, fighterId);
 }
 
+export async function updateProfile(
+  supabase: SupabaseClient,
+  userId: string,
+  input: { full_name: string }
+): Promise<Profile> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .update({ full_name: input.full_name.trim() })
+    .eq("id", userId)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as Profile;
+}
+
+export async function getEventCategoryConfig(
+  supabase: SupabaseClient,
+  eventId: string
+): Promise<EventCategoryConfig | null> {
+  const { data } = await supabase
+    .from("events")
+    .select("category_config, competition_year, date")
+    .eq("id", eventId)
+    .single();
+
+  if (!data) return null;
+
+  const parsed = parseEventCategoryConfig(data.category_config);
+  if (parsed) return parsed;
+
+  const competitionYear =
+    data.competition_year ??
+    (data.date ? new Date(data.date).getFullYear() : new Date().getFullYear());
+  const [categories, weights] = await Promise.all([
+    getAgeCategories(supabase),
+    getWeightClasses(supabase),
+  ]);
+
+  return attachPlatformWeightIds(
+    buildDefaultEventCategoryConfig(competitionYear, categories),
+    categories,
+    weights
+  );
+}
+
+export async function saveEventCategoryConfig(
+  supabase: SupabaseClient,
+  eventId: string,
+  config: EventCategoryConfig
+): Promise<Event> {
+  const { data, error } = await supabase
+    .from("events")
+    .update({
+      category_config: config,
+      competition_year: config.competition_year,
+    })
+    .eq("id", eventId)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as Event;
+}
+
+export async function updateBracket(
+  supabase: SupabaseClient,
+  bracketId: string,
+  input: {
+    name?: string;
+    status?: Event["status"];
+    scheduled_date?: string | null;
+    venue?: string | null;
+  }
+): Promise<Bracket> {
+  const updates: Record<string, unknown> = {};
+  if (input.name !== undefined) updates.name = input.name.trim();
+  if (input.status !== undefined) updates.status = input.status;
+  if (input.scheduled_date !== undefined) updates.scheduled_date = input.scheduled_date;
+  if (input.venue !== undefined) updates.venue = input.venue;
+
+  const { data, error } = await supabase
+    .from("brackets")
+    .update(updates)
+    .eq("id", bracketId)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as Bracket;
+}
+
+export async function resolveFixtureCategoryIds(
+  supabase: SupabaseClient,
+  clubId: string,
+  input: {
+    competitionYear: number;
+    category: {
+      sourceId: string | null;
+      code?: string;
+      name: string;
+      birth_year_from: number;
+      birth_year_to: number;
+      isDefault: boolean;
+    };
+    weightClass: {
+      name: string;
+      gender: Gender;
+      min_weight_kg: number | null;
+      max_weight_kg: number | null;
+    };
+  },
+  catalog?: PlatformCategoryCatalog
+): Promise<{ ageCategoryId: string; weightClassId: string }> {
+  if (!catalog) {
+    const [platformCategories, platformWeights] = await Promise.all([
+      getAgeCategories(supabase),
+      getWeightClasses(supabase),
+    ]);
+    catalog = buildPlatformCategoryCatalog(platformCategories, platformWeights);
+  }
+
+  return resolveFixtureCategoryIdsWithCatalog(
+    supabase,
+    clubId,
+    input.competitionYear,
+    input,
+    catalog
+  );
+}
+
+export type FixtureSectionResolveInput = {
+  sectionKey: string;
+  category: {
+    sourceId: string | null;
+    code?: string;
+    name: string;
+    birth_year_from: number;
+    birth_year_to: number;
+    isDefault: boolean;
+  };
+  weightClass: {
+    name: string;
+    gender: Gender;
+    min_weight_kg: number | null;
+    max_weight_kg: number | null;
+  };
+};
+
+export async function resolveFixtureCategoryIdsBatch(
+  supabase: SupabaseClient,
+  clubId: string,
+  competitionYear: number,
+  sections: FixtureSectionResolveInput[]
+): Promise<Map<string, { ageCategoryId: string; weightClassId: string }>> {
+  const [platformCategories, platformWeights] = await Promise.all([
+    getAgeCategories(supabase),
+    getWeightClasses(supabase),
+  ]);
+  const catalog = buildPlatformCategoryCatalog(platformCategories, platformWeights);
+  const categoryCache = new Map<string, string>();
+  const weightCache = new Map<string, string>();
+  const results = new Map<string, { ageCategoryId: string; weightClassId: string }>();
+
+  for (const section of sections) {
+    const categoryKey = categoryResolveCacheKey(section.category);
+    let ageCategoryId = categoryCache.get(categoryKey);
+
+    if (!ageCategoryId) {
+      const resolved = await resolveFixtureCategoryIdsWithCatalog(
+        supabase,
+        clubId,
+        competitionYear,
+        section,
+        catalog
+      );
+      ageCategoryId = resolved.ageCategoryId;
+      categoryCache.set(categoryKey, ageCategoryId);
+      weightCache.set(
+        weightResolveCacheKey(ageCategoryId, section.weightClass),
+        resolved.weightClassId
+      );
+      results.set(section.sectionKey, resolved);
+      continue;
+    }
+
+    const weightKey = weightResolveCacheKey(ageCategoryId, section.weightClass);
+    let weightClassId = weightCache.get(weightKey);
+    if (!weightClassId) {
+      const resolved = await resolveFixtureCategoryIdsWithCatalog(
+        supabase,
+        clubId,
+        competitionYear,
+        section,
+        catalog,
+        ageCategoryId
+      );
+      weightClassId = resolved.weightClassId;
+      weightCache.set(weightKey, weightClassId);
+    }
+
+    results.set(section.sectionKey, { ageCategoryId, weightClassId });
+  }
+
+  return results;
+}
+
+async function resolveFixtureCategoryIdsWithCatalog(
+  supabase: SupabaseClient,
+  clubId: string,
+  competitionYear: number,
+  input: {
+    category: FixtureSectionResolveInput["category"];
+    weightClass: FixtureSectionResolveInput["weightClass"];
+  },
+  catalog: PlatformCategoryCatalog,
+  knownAgeCategoryId?: string
+): Promise<{ ageCategoryId: string; weightClassId: string }> {
+  let ageCategoryId = knownAgeCategoryId;
+
+  if (!ageCategoryId) {
+    ageCategoryId = input.category.sourceId ?? undefined;
+
+    if (ageCategoryId) {
+      const existing = catalog.categoryById.get(ageCategoryId);
+      if (existing?.club_id === null && input.category.isDefault) {
+        ageCategoryId = existing.id;
+      } else if (existing?.is_custom) {
+        await updateFixtureAgeCategory(supabase, ageCategoryId, {
+          birth_year_from: input.category.birth_year_from,
+          birth_year_to: input.category.birth_year_to,
+          competition_year: competitionYear,
+        });
+      }
+    }
+
+    if (!ageCategoryId) {
+      const created = await createFixtureAgeCategory(supabase, clubId, {
+        name: input.category.name,
+        birth_year_from: input.category.birth_year_from,
+        birth_year_to: input.category.birth_year_to,
+        competition_year: competitionYear,
+      });
+      ageCategoryId = created.id;
+      catalog.categoryById.set(created.id, created);
+    }
+  }
+
+  const categoryCode =
+    input.category.code ??
+    catalog.categoryById.get(ageCategoryId)?.code ??
+    "";
+
+  const platformMatch = categoryCode
+    ? findPlatformWeightClass(catalog, {
+        categoryCode,
+        gender: input.weightClass.gender,
+        min_weight_kg: input.weightClass.min_weight_kg,
+        max_weight_kg: input.weightClass.max_weight_kg,
+      })
+    : undefined;
+
+  let weightClassId = platformMatch?.id;
+
+  if (!weightClassId) {
+    const created = await createFixtureWeightClass(supabase, clubId, {
+      name: input.weightClass.name,
+      gender: input.weightClass.gender,
+      age_category_id: ageCategoryId,
+      min_weight_kg: input.weightClass.min_weight_kg,
+      max_weight_kg: input.weightClass.max_weight_kg,
+    });
+    weightClassId = created.id;
+  }
+
+  return { ageCategoryId, weightClassId };
+}
+
 export async function createEvent(
   supabase: SupabaseClient,
   input: EventInput,
@@ -824,6 +1108,19 @@ export async function createEvent(
 ): Promise<Event> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
+
+  const competitionYear = input.date
+    ? new Date(input.date).getFullYear()
+    : new Date().getFullYear();
+  const [platformCategories, platformWeights] = await Promise.all([
+    getAgeCategories(supabase),
+    getWeightClasses(supabase),
+  ]);
+  const categoryConfig = attachPlatformWeightIds(
+    buildDefaultEventCategoryConfig(competitionYear, platformCategories),
+    platformCategories,
+    platformWeights
+  );
 
   const { data: event, error } = await supabase
     .from("events")
@@ -836,6 +1133,8 @@ export async function createEvent(
       organizer_club_id: organizerClubId ?? clubIds[0] ?? null,
       organizer_user_id: user.id,
       status: "draft",
+      competition_year: competitionYear,
+      category_config: categoryConfig,
     })
     .select()
     .single();

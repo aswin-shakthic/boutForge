@@ -121,6 +121,8 @@ export interface Event {
   is_cross_club: boolean;
   organizer_club_id: string | null;
   organizer_user_id: string | null;
+  competition_year: number | null;
+  category_config: import("./event-categories").EventCategoryConfig | null;
   created_at: string;
 }
 

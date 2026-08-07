@@ -10,13 +10,13 @@ import {
   assignFightersToFixtureSection,
   createBracket,
   createEvent,
-  createFixtureAgeCategory,
-  createFixtureWeightClass,
   getAgeCategories,
+  getEventCategoryConfig,
   getEvents,
   getFighters,
   getUserClubs,
-  updateFixtureAgeCategory,
+  resolveFixtureCategoryIdsBatch,
+  saveEventCategoryConfig,
 } from "@boutforge/api";
 import {
   fighterFullName,
@@ -31,6 +31,10 @@ import {
   toggleSectionFighterSelection,
   pruneFixtureWizardState,
   eventSchema,
+  configToCategoryDrafts,
+  configToWeightClassDrafts,
+  eventConfigFromWizardState,
+  seedWeightClassDrafts,
 } from "@boutforge/shared";
 import type {
   AgeCategory,
@@ -44,6 +48,7 @@ import type {
 type CategoryDraft = {
   id: string;
   sourceId: string | null;
+  code: string;
   name: string;
   birth_year_from: number;
   birth_year_to: number;
@@ -99,11 +104,18 @@ function toCategoryDraft(
   return {
     id: category.id,
     sourceId: category.id,
+    code: category.code,
     name: category.name,
     birth_year_from: years.birth_year_from,
     birth_year_to: years.birth_year_to,
     isDefault: !category.is_custom && category.club_id === null,
   };
+}
+
+function applyDefaultWeightClasses(categories: CategoryDraft[]): WeightClassDraft[] {
+  return seedWeightClassDrafts(
+    categories.map((c) => ({ id: c.id, code: c.code }))
+  );
 }
 
 function NewFixtureWizard() {
@@ -180,30 +192,42 @@ function NewFixtureWizard() {
     let active = true;
     start();
 
-    async function loadCategories() {
+    async function loadCategoryData() {
       try {
+        if (eventMode === "existing" && selectedEventId) {
+          const config = await getEventCategoryConfig(supabase, selectedEventId);
+          if (!active || !config) return;
+
+          setCompetitionYear(config.competition_year);
+          setCategories(configToCategoryDrafts(config));
+          setWeightClasses(configToWeightClassDrafts(config));
+          setSelectedBySection({});
+          setConfigBySection({});
+          return;
+        }
+
         const all = await getAgeCategories(supabase);
         if (!active) return;
 
-        const visible = all.filter(
-          (cat) => cat.club_id === null || cat.club_id === hostClubId
-        );
+        const loaded = all
+          .filter((cat) => cat.club_id === null)
+          .map((cat) => toCategoryDraft(cat, competitionYear));
 
         setCategories((prev) => {
           const additional = prev.filter((cat) => cat.sourceId === null);
-          const loaded = visible.map((cat) => toCategoryDraft(cat, competitionYear));
           return [...loaded, ...additional];
         });
+        setWeightClasses(applyDefaultWeightClasses(loaded));
       } finally {
         if (active) end();
       }
     }
 
-    loadCategories();
+    loadCategoryData();
     return () => {
       active = false;
     };
-  }, [supabase, hostClubId, competitionYear, start, end]);
+  }, [supabase, hostClubId, competitionYear, eventMode, selectedEventId, start, end]);
 
   useEffect(() => {
     if (!hostClubId) return;
@@ -223,8 +247,8 @@ function NewFixtureWizard() {
         if (fromUrl && open.some((e) => e.id === fromUrl)) {
           setSelectedEventId(fromUrl);
           setEventMode("existing");
-        } else if (open.length > 0 && !selectedEventId) {
-          setSelectedEventId(open[0].id);
+        } else if (open.length > 0) {
+          setSelectedEventId((current) => current || open[0].id);
           setEventMode("existing");
         }
       } finally {
@@ -236,7 +260,7 @@ function NewFixtureWizard() {
     return () => {
       active = false;
     };
-  }, [supabase, hostClubId, searchParams, selectedEventId, start, end]);
+  }, [supabase, hostClubId, searchParams, start, end]);
 
   useEffect(() => {
     if (selectedClubIds.size === 0) {
@@ -335,6 +359,7 @@ function NewFixtureWizard() {
       {
         id: newId(),
         sourceId: null,
+        code: categoryForm.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_"),
         name: categoryForm.name.trim(),
         birth_year_from: from,
         birth_year_to: to,
@@ -487,6 +512,13 @@ function NewFixtureWizard() {
     return event.id;
   }
 
+  function goToWeightStep() {
+    setWeightClasses((prev) =>
+      prev.length === 0 ? applyDefaultWeightClasses(categories) : prev
+    );
+    setStep(3);
+  }
+
   async function handlePublish() {
     if (!hostClubId || readySections.length === 0) return;
 
@@ -495,53 +527,53 @@ function NewFixtureWizard() {
 
     try {
       const eventId = await resolveEventId();
+
+      const categoryCodes = new Map(categories.map((c) => [c.id, c.code]));
+      const eventConfig = eventConfigFromWizardState({
+        competitionYear,
+        categories,
+        weightClasses,
+        categoryCodes,
+      });
+      await saveEventCategoryConfig(supabase, eventId, eventConfig);
+
       const eventDate =
         eventMode === "existing"
           ? events.find((e) => e.id === eventId)?.date
           : eventForm.date;
 
-      const categoryMap = new Map<string, string>();
-      for (const cat of categories) {
-        if (cat.sourceId) {
-          const updated = await updateFixtureAgeCategory(supabase, cat.sourceId, {
-            birth_year_from: cat.birth_year_from,
-            birth_year_to: cat.birth_year_to,
-            competition_year: competitionYear,
-          });
-          categoryMap.set(cat.id, updated.id);
-        } else {
-          const created = await createFixtureAgeCategory(supabase, hostClubId, {
-            name: cat.name,
-            birth_year_from: cat.birth_year_from,
-            birth_year_to: cat.birth_year_to,
-            competition_year: competitionYear,
-          });
-          categoryMap.set(cat.id, created.id);
-        }
-      }
-
-      const weightMap = new Map<string, string>();
-      for (const wc of weightClasses) {
-        const ageCategoryId = categoryMap.get(wc.categoryDraftId);
-        if (!ageCategoryId) continue;
-        const created = await createFixtureWeightClass(supabase, hostClubId, {
-          name: wc.name,
-          gender: wc.gender,
-          age_category_id: ageCategoryId,
-          min_weight_kg: parseWeight(wc.min_weight_kg),
-          max_weight_kg: parseWeight(wc.max_weight_kg),
-        });
-        weightMap.set(wc.id, created.id);
-      }
-
       let firstBracketId: string | null = null;
+
+      const sectionIds = await resolveFixtureCategoryIdsBatch(
+        supabase,
+        hostClubId,
+        competitionYear,
+        readySections.map((section) => ({
+          sectionKey: section.key,
+          category: {
+            sourceId: section.category.sourceId,
+            code: section.category.code,
+            name: section.category.name,
+            birth_year_from: section.category.birth_year_from,
+            birth_year_to: section.category.birth_year_to,
+            isDefault: section.category.isDefault,
+          },
+          weightClass: {
+            name: section.weightClass.name,
+            gender: section.weightClass.gender,
+            min_weight_kg: parseWeight(section.weightClass.min_weight_kg),
+            max_weight_kg: parseWeight(section.weightClass.max_weight_kg),
+          },
+        }))
+      );
 
       for (const section of readySections) {
         const fighterIds = selectedBySection[section.key] ?? [];
         const config = getSectionConfig(section);
-        const ageCategoryId = categoryMap.get(section.category.id);
-        const weightClassId = weightMap.get(section.weightClass.id);
-        if (!ageCategoryId || !weightClassId) continue;
+        const resolved = sectionIds.get(section.key);
+        if (!resolved) continue;
+
+        const { ageCategoryId, weightClassId } = resolved;
 
         await assignFightersToFixtureSection(
           supabase,
@@ -857,7 +889,7 @@ function NewFixtureWizard() {
             </button>
             <button
               type="button"
-              onClick={() => setStep(3)}
+              onClick={goToWeightStep}
               className="btn-primary"
               disabled={categories.length === 0}
             >

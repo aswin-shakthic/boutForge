@@ -246,6 +246,8 @@ export const MOCK_EVENTS: Event[] = [
     is_cross_club: false,
     organizer_club_id: MOCK_CLUB.id,
     organizer_user_id: MOCK_PROFILE.id,
+    competition_year: 2026,
+    category_config: null,
     created_at: "2026-07-01T00:00:00Z",
   },
   {
@@ -258,6 +260,8 @@ export const MOCK_EVENTS: Event[] = [
     is_cross_club: false,
     organizer_club_id: MOCK_CLUB.id,
     organizer_user_id: MOCK_PROFILE.id,
+    competition_year: 2026,
+    category_config: null,
     created_at: "2026-07-15T00:00:00Z",
   },
   {
@@ -270,6 +274,8 @@ export const MOCK_EVENTS: Event[] = [
     is_cross_club: true,
     organizer_club_id: MOCK_CLUB.id,
     organizer_user_id: MOCK_PROFILE.id,
+    competition_year: 2026,
+    category_config: null,
     created_at: "2026-06-01T00:00:00Z",
   },
   {
@@ -282,6 +288,8 @@ export const MOCK_EVENTS: Event[] = [
     is_cross_club: true,
     organizer_club_id: MOCK_CLUB.id,
     organizer_user_id: MOCK_PROFILE.id,
+    competition_year: 2026,
+    category_config: null,
     created_at: "2026-07-01T00:00:00Z",
   },
 ];

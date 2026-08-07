@@ -9,7 +9,7 @@ import {
   type Bracket,
   type Fighter,
 } from "@boutforge/shared";
-import { reassignBracketFighter } from "@boutforge/api";
+import { reassignBracketFighter, updateBracket } from "@boutforge/api";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -312,11 +312,17 @@ export function BracketView({
   const supabase = createClient();
   const [bouts, setBouts] = useState(initialBouts);
   const [selectedBout, setSelectedBout] = useState<Bout | null>(null);
+  const [bracketName, setBracketName] = useState(bracket.name);
+  const [savingName, setSavingName] = useState(false);
   const { isPending, start, end } = usePendingLoads();
 
   useEffect(() => {
     setBouts(initialBouts);
   }, [initialBouts]);
+
+  useEffect(() => {
+    setBracketName(bracket.name);
+  }, [bracket.name]);
 
   const { rounds } = useMemo(() => organizeBoutsByRound(bouts), [bouts]);
 
@@ -362,17 +368,48 @@ export function BracketView({
   const tournamentTitle =
     participantCount > 0
       ? `${participantCount} Fighter Single Elimination Tournament`
-      : bracket.name;
+      : bracketName;
+
+  async function saveBracketName() {
+    if (isDemo || !canEdit || bracketName.trim() === bracket.name) return;
+    setSavingName(true);
+    start();
+    try {
+      await updateBracket(supabase, bracket.id, { name: bracketName.trim() });
+      router.refresh();
+    } finally {
+      setSavingName(false);
+      end();
+    }
+  }
 
   return (
-    <LoadingOverlay loading={isPending} label="Updating bracket…">
+    <LoadingOverlay loading={isPending || savingName} label="Updating bracket…">
     <div className="space-y-4">
       <div className="bracket-actions no-print">
-        <div className="text-sm text-gray-500">
+        <div className="text-sm text-gray-500 space-y-2">
           {canEdit && (
-            <span>
-              {remainingCount} unassigned · {fighters.length} fighters in pool
-            </span>
+            <>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <input
+                  className="input-field text-sm max-w-md"
+                  value={bracketName}
+                  onChange={(e) => setBracketName(e.target.value)}
+                  aria-label="Bracket name"
+                />
+                <button
+                  type="button"
+                  className="btn-secondary text-sm"
+                  onClick={saveBracketName}
+                  disabled={savingName || bracketName.trim() === bracket.name}
+                >
+                  Save name
+                </button>
+              </div>
+              <span>
+                {remainingCount} unassigned · {fighters.length} fighters in pool
+              </span>
+            </>
           )}
         </div>
         <button type="button" onClick={() => window.print()} className="btn-secondary">
@@ -383,9 +420,9 @@ export function BracketView({
       <div id="bracket-print-area" className="bracket-print-sheet p-4 sm:p-6 md:p-10">
         <div className="text-center mb-10">
           <h1 className="bracket-print-title">{tournamentTitle}</h1>
-          {participantCount > 0 && bracket.name !== tournamentTitle && (
+          {participantCount > 0 && bracketName !== tournamentTitle && (
             <p className="bracket-print-meta mt-3 font-medium text-gray-700 normal-case">
-              {bracket.name}
+              {bracketName}
             </p>
           )}
           <p className="bracket-print-meta capitalize">

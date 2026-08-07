@@ -88,11 +88,12 @@ describe("fighterMatchesWeightClass", () => {
     ).toBe(false);
   });
 
-  it("enforces min and max weight bounds", () => {
+  it("enforces min inclusive and max exclusive weight bounds", () => {
     const wc = { gender: "male" as const, min_weight_kg: 48, max_weight_kg: 52 };
     expect(fighterMatchesWeightClass(fighter({ id: "f1", weight_kg: 50 }), wc)).toBe(true);
     expect(fighterMatchesWeightClass(fighter({ id: "f2", weight_kg: 47.9 }), wc)).toBe(false);
-    expect(fighterMatchesWeightClass(fighter({ id: "f3", weight_kg: 52.1 }), wc)).toBe(false);
+    expect(fighterMatchesWeightClass(fighter({ id: "f3", weight_kg: 52 }), wc)).toBe(false);
+    expect(fighterMatchesWeightClass(fighter({ id: "f4", weight_kg: 51.9 }), wc)).toBe(true);
   });
 });
 
@@ -106,7 +107,23 @@ describe("resolveCategoryBirthYears", () => {
     ).toEqual({ birth_year_from: 2012, birth_year_to: 2014 });
   });
 
-  it("derives birth years from age range and competition year", () => {
+  it("derives birth years from platform template code and competition year", () => {
+    expect(
+      resolveCategoryBirthYears(
+        {
+          code: "sub_junior",
+          min_age: 13,
+          max_age: 14,
+          birth_year_from: null,
+          birth_year_to: null,
+          is_custom: false,
+        },
+        2026
+      )
+    ).toEqual({ birth_year_from: 2012, birth_year_to: 2013 });
+  });
+
+  it("derives birth years from age range when no template applies", () => {
     expect(
       resolveCategoryBirthYears(
         { min_age: 13, max_age: 15, birth_year_from: null, birth_year_to: null },

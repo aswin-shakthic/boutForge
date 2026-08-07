@@ -27,6 +27,8 @@ export const fighterSchema = z.object({
   gender: z.enum(["male", "female"]),
   weight_kg: z.number().positive("Weight must be positive"),
   notes: z.string().optional(),
+  affiliation_name: z.string().optional().nullable(),
+  status: z.enum(["active", "inactive"]).optional(),
 });
 
 export const boutResultSchema = z.object({
