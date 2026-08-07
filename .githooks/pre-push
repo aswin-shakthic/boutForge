@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# Blocks git push unless the committer is listed in scripts/git/allowed-pushers.txt
+# Override once: BOUTFORGE_ALLOW_PUSH=1 git push
+
+set -euo pipefail
+
+if [[ "${BOUTFORGE_ALLOW_PUSH:-}" == "1" ]]; then
+  echo "pre-push: BOUTFORGE_ALLOW_PUSH=1 — push allowed (one-time override)."
+  exit 0
+fi
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+ALLOWLIST="${REPO_ROOT}/scripts/git/allowed-pushers.txt"
+
+if [[ ! -f "$ALLOWLIST" ]]; then
+  echo "pre-push: missing allowlist at scripts/git/allowed-pushers.txt"
+  exit 1
+fi
+
+email="$(git config user.email 2>/dev/null | tr '[:upper:]' '[:lower:]' || true)"
+name="$(git config user.name 2>/dev/null | tr '[:upper:]' '[:lower:]' || true)"
+
+if [[ -z "$email" ]]; then
+  echo "pre-push: set git user.email before pushing."
+  exit 1
+fi
+
+allowed=0
+while IFS= read -r line || [[ -n "$line" ]]; do
+  line="${line%%#*}"
+  line="$(echo "$line" | xargs 2>/dev/null || true)"
+  [[ -z "$line" ]] && continue
+  key="$(echo "$line" | tr '[:upper:]' '[:lower:]')"
+  if [[ "$email" == "$key" ]] || [[ "$name" == "$key" ]] || [[ "$email" == *"@${key}"* ]]; then
+    allowed=1
+    break
+  fi
+done < "$ALLOWLIST"
+
+if [[ "$allowed" -ne 1 ]]; then
+  echo ""
+  echo "pre-push: BLOCKED — only allowlisted identities may push to boutForge."
+  echo "  git user.email: $(git config user.email)"
+  echo "  git user.name:  $(git config user.name)"
+  echo ""
+  echo "To add a collaborator: edit scripts/git/allowed-pushers.txt and get a PR approved."
+  echo "One-time override (you explicitly approve): BOUTFORGE_ALLOW_PUSH=1 git push"
+  echo ""
+  exit 1
+fi
+
+exit 0

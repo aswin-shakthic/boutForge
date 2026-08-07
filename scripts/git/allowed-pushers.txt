@@ -1,0 +1,5 @@
+# Git identities allowed to push to this repository (local pre-push hook).
+# Add one email or GitHub username per line. Lines starting with # are ignored.
+# To approve a one-time push by someone else: BOUTFORGE_ALLOW_PUSH=1 git push
+aswin.shakthic@freshworks.com
+aswin-shakthic

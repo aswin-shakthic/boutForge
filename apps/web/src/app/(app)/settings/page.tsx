@@ -5,6 +5,7 @@ import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { createInvite } from "@boutforge/api";
 import { inviteSchema } from "@boutforge/shared";
+import { signupInviteUrl } from "@/lib/app-url";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { usePendingLoads } from "@/hooks/usePendingLoads";
 
@@ -52,7 +53,7 @@ export default function SettingsPage() {
     setLoading(true);
     try {
       const invite = await createInvite(supabase, clubId, role);
-      setInviteLink(`${window.location.origin}/signup?invite=${invite.token}`);
+      setInviteLink(signupInviteUrl(invite.token));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create invite");
     }

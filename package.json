@@ -15,7 +15,8 @@
     "test": "turbo test",
     "db:start": "npx supabase start -x vector",
     "db:reset": "npx supabase db reset",
-    "db:stop": "npx supabase stop"
+    "db:stop": "npx supabase stop",
+    "git:hooks": "bash scripts/install-git-hooks.sh"
   },
   "devDependencies": {
     "turbo": "^2.3.3",

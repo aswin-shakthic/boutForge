@@ -45,11 +45,25 @@ npm install
 ### 2. Configure environment
 
 ```bash
-cp .env.example .env.local
-# Edit .env.local with your Supabase URL and anon key
+cp .env.example apps/web/.env.local
+# Edit apps/web/.env.local:
+#   NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY
+#   NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
 For mobile, set `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` in `apps/mobile/.env` or `app.json` extra config.
+
+**Supabase auth URLs** (Dashboard → Authentication → URL configuration):
+
+| Setting | Value |
+|---------|--------|
+| **Site URL** | `https://bout-forge-web-owh5.vercel.app` (must NOT be localhost in cloud project) |
+| **Redirect URLs** | `https://bout-forge-web-owh5.vercel.app/auth/callback` |
+| | `https://bout-forge-web-owh5.vercel.app/reset-password` |
+| | `http://localhost:3000/auth/callback` (local dev only) |
+| | `http://localhost:3000/reset-password` (local dev only) |
+
+If confirmation or reset emails still open `localhost:3000`, the Supabase **Site URL** is wrong — update it in the dashboard (the app now sends the correct `redirect_to` from the browser origin, but Supabase email templates also reference Site URL).
 
 ### 3. Start Supabase locally
 
@@ -95,7 +109,9 @@ Scan QR code with Expo Go, or press `i` for iOS simulator / `a` for Android emul
 3. Add environment variables:
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-4. Deploy
+   - `NEXT_PUBLIC_APP_URL` — optional on Vercel if unset; browser uses live domain. If set, use production URL only: `https://bout-forge-web-owh5.vercel.app` (**never** `http://localhost:3000`)
+4. In Supabase cloud project set **Site URL** to the same production domain and add redirect URLs (see Setup step 2).
+5. Deploy
 
 Or use the included `vercel.json`:
 

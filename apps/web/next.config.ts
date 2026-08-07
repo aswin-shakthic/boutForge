@@ -9,8 +9,22 @@ const missingSupabaseEnv = [
 if (missingSupabaseEnv.length > 0) {
   console.warn(
     `[boutforge] Missing env: ${missingSupabaseEnv.join(", ")}. ` +
-      "Auth will not work until these are set in Vercel → Settings → Environment Variables."
+      "Set them in Vercel → Settings → Environment Variables."
   );
+}
+
+if (process.env.VERCEL_ENV === "production") {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (
+    appUrl &&
+    (appUrl.includes("localhost") || appUrl.includes("127.0.0.1"))
+  ) {
+    console.warn(
+      "[boutforge] NEXT_PUBLIC_APP_URL is set to localhost in production. " +
+        "Remove it or set it to your Vercel domain (e.g. https://bout-forge-web-owh5.vercel.app). " +
+        "Also update Supabase → Authentication → Site URL to the same production domain."
+    );
+  }
 }
 
 const nextConfig: NextConfig = {

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { forgotPasswordSchema } from "@boutforge/shared";
+import { resetPasswordUrl } from "@/lib/app-url";
 import { AuthLayout, AuthLink } from "@/components/AuthLayout";
 import { SupabaseConfigAlert } from "@/components/SupabaseConfigAlert";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
@@ -28,7 +29,7 @@ export default function ForgotPasswordPage() {
     setLoading(true);
     const supabase = createClient();
     const { error: authError } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: resetPasswordUrl(),
     });
     setLoading(false);
 

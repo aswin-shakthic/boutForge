@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import { authCallbackUrl } from "@/lib/app-url";
 import { createClub, joinClubWithInvite, resolveAuthDestination } from "@boutforge/api";
 import { signupSchema } from "@boutforge/shared";
 import { AuthLayout, AuthLink } from "@/components/AuthLayout";
@@ -59,7 +60,7 @@ function SignupForm() {
           pending_club_name: useInvite ? null : form.club_name,
           pending_invite_token: useInvite ? form.invite_token : null,
         },
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: authCallbackUrl("/dashboard"),
       },
     });
 
