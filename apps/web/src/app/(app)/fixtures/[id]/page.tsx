@@ -1,4 +1,4 @@
-import { ArrowLeft, Pencil } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { getBracketWithBouts, getFighters } from "@boutforge/api";
 import { canDeleteBracket, canEditPairings, canRecordResults } from "@boutforge/shared";
 import { FixtureBracketPage } from "@/components/FixtureBracketPage";
@@ -53,7 +53,7 @@ export default async function FixtureDetailPage({
               <IconAction
                 href={`/fixtures/${id}/edit`}
                 label="Edit fixture"
-                icon={Pencil}
+                icon="pencil"
                 mode="responsive"
               />
             )}

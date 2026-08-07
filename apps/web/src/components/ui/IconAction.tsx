@@ -1,8 +1,33 @@
 "use client";
 
 import Link from "next/link";
-import type { LucideIcon } from "lucide-react";
+import {
+  CalendarPlus,
+  Eye,
+  Pencil,
+  Plus,
+  Printer,
+  Trophy,
+  Upload,
+  UserPlus,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
 import { Tooltip } from "./Tooltip";
+
+const ICONS = {
+  calendarPlus: CalendarPlus,
+  eye: Eye,
+  pencil: Pencil,
+  plus: Plus,
+  printer: Printer,
+  trophy: Trophy,
+  upload: Upload,
+  userPlus: UserPlus,
+  users: Users,
+} as const satisfies Record<string, LucideIcon>;
+
+export type IconActionIcon = keyof typeof ICONS;
 
 type Variant = "primary" | "secondary" | "danger" | "ghost";
 
@@ -15,7 +40,7 @@ const VARIANT_CLASS: Record<Variant, string> = {
 
 type IconActionBase = {
   label: string;
-  icon: LucideIcon;
+  icon: IconActionIcon;
   variant?: Variant;
   /** Icon only (tooltip). "responsive" shows label from sm breakpoint up. */
   mode?: "icon" | "responsive" | "label";
@@ -39,13 +64,14 @@ export type IconActionProps = IconActionLink | IconActionButton;
 
 export function IconAction({
   label,
-  icon: Icon,
+  icon,
   variant = "secondary",
   mode = "icon",
   className = "",
   disabled,
   ...rest
 }: IconActionProps) {
+  const Icon = ICONS[icon];
   const isIconOnly = mode === "icon";
   const showLabel = mode === "label";
   const responsiveLabel = mode === "responsive";

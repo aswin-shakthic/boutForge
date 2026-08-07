@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, Pencil, Plus } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { getBracketsByEvent } from "@boutforge/api";
 import { canDeleteEvent as checkCanDeleteEvent, canEditEvent as checkCanEditEvent } from "@boutforge/shared";
 import { getAppContext } from "@/lib/app-context";
@@ -68,14 +68,14 @@ export default async function EventDetailPage({
             <IconAction
               href={`/events/${event.id}/edit`}
               label="Edit event"
-              icon={Pencil}
+              icon="pencil"
               mode="responsive"
             />
           )}
           <IconAction
             href={`/fixtures/new?eventId=${event.id}`}
             label="Add brackets"
-            icon={Plus}
+            icon="plus"
             variant="primary"
             mode="responsive"
           />

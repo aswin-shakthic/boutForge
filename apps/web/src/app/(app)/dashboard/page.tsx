@@ -1,9 +1,14 @@
 import Link from "next/link";
-import { UserPlus, Trophy } from "lucide-react";
 import { getDashboardStats } from "@boutforge/api";
-import { fighterFullName } from "@boutforge/shared";
+import { BOUT_METHOD_LABELS, fighterFullName } from "@boutforge/shared";
 import { getAppContext } from "@/lib/app-context";
 import { IconAction } from "@/components/ui/IconAction";
+
+function boutFighterLabel(
+  fighter: { first_name: string; last_name: string } | null | undefined
+): string {
+  return fighter ? fighterFullName(fighter) : "Unknown";
+}
 
 export default async function DashboardPage() {
   const { supabase, clubId, membership } = await getAppContext();
@@ -47,7 +52,7 @@ export default async function DashboardPage() {
           <IconAction
             href="/fixtures/new"
             label="Create fixture"
-            icon={Trophy}
+            icon="trophy"
             variant="primary"
             mode="responsive"
             className="flex-1 sm:flex-none"
@@ -55,7 +60,7 @@ export default async function DashboardPage() {
           <IconAction
             href="/fighters/new"
             label="Add fighter"
-            icon={UserPlus}
+            icon="userPlus"
             mode="responsive"
             className="flex-1 sm:flex-none"
           />
@@ -71,8 +76,7 @@ export default async function DashboardPage() {
                 {stats.upcomingBouts.map((bout) => (
                   <div key={bout.id} className="border border-gray-100 rounded-lg p-3">
                     <p className="font-medium text-sm">
-                      {bout.fighter_a ? fighterFullName(bout.fighter_a) : "TBD"} vs{" "}
-                      {bout.fighter_b ? fighterFullName(bout.fighter_b) : "TBD"}
+                      {boutFighterLabel(bout.fighter_a)} vs {boutFighterLabel(bout.fighter_b)}
                     </p>
                     <p className="text-xs text-gray-500 mt-1">
                       Round {bout.round_number} · Bout {bout.bout_order}
@@ -89,22 +93,26 @@ export default async function DashboardPage() {
               <p className="text-gray-400 text-sm">No recent results</p>
             ) : (
               <div className="space-y-3">
-                {stats.recentResults.map((bout) => (
-                  <div key={bout.id} className="border border-gray-100 rounded-lg p-3">
-                    <p className="font-medium text-sm">
-                      {bout.result?.winner_id === bout.fighter_a_id
-                        ? fighterFullName(bout.fighter_a!)
-                        : fighterFullName(bout.fighter_b!)}{" "}
-                      def.{" "}
-                      {bout.result?.winner_id === bout.fighter_a_id
-                        ? fighterFullName(bout.fighter_b!)
-                        : fighterFullName(bout.fighter_a!)}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {bout.result?.method} · R{bout.result?.round_ended}
-                    </p>
-                  </div>
-                ))}
+                {stats.recentResults.map((bout) => {
+                  const winnerIsA = bout.result?.winner_id === bout.fighter_a_id;
+                  const winner = winnerIsA ? bout.fighter_a : bout.fighter_b;
+                  const loser = winnerIsA ? bout.fighter_b : bout.fighter_a;
+                  const method = bout.result?.method
+                    ? BOUT_METHOD_LABELS[bout.result.method] ?? bout.result.method
+                    : null;
+
+                  return (
+                    <div key={bout.id} className="border border-gray-100 rounded-lg p-3">
+                      <p className="font-medium text-sm">
+                        {boutFighterLabel(winner)} def. {boutFighterLabel(loser)}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {method ?? "Result recorded"}
+                        {bout.result?.round_ended ? ` · R${bout.result.round_ended}` : ""}
+                      </p>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

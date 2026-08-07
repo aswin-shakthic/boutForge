@@ -1,4 +1,3 @@
-import { Eye, Pencil, Upload, UserPlus, Users } from "lucide-react";
 import { getFighters } from "@boutforge/api";
 import {
   fighterFullName,
@@ -30,14 +29,14 @@ export default async function FightersPage() {
           <IconAction
             href="/fighters/participations"
             label="Participants"
-            icon={Users}
+            icon="users"
             mode="responsive"
           />
-          <IconAction href="/import" label="Import CSV" icon={Upload} mode="responsive" />
+          <IconAction href="/import" label="Import CSV" icon="upload" mode="responsive" />
           <IconAction
             href="/fighters/new"
             label="Add fighter"
-            icon={UserPlus}
+            icon="userPlus"
             variant="primary"
             mode="responsive"
           />
@@ -77,14 +76,14 @@ export default async function FightersPage() {
                   <IconAction
                     href={`/fighters/${fighter.id}`}
                     label="View profile"
-                    icon={Eye}
+                    icon="eye"
                     variant="ghost"
                   />
                   {canEdit && (
                     <IconAction
                       href={`/fighters/${fighter.id}/edit`}
                       label="Edit fighter"
-                      icon={Pencil}
+                      icon="pencil"
                       variant="ghost"
                     />
                   )}
@@ -154,14 +153,14 @@ export default async function FightersPage() {
                           <IconAction
                             href={`/fighters/${fighter.id}`}
                             label="View profile"
-                            icon={Eye}
+                            icon="eye"
                             variant="ghost"
                           />
                           {canEdit && (
                             <IconAction
                               href={`/fighters/${fighter.id}/edit`}
                               label="Edit fighter"
-                              icon={Pencil}
+                              icon="pencil"
                               variant="ghost"
                             />
                           )}

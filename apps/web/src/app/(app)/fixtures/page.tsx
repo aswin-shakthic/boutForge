@@ -1,4 +1,3 @@
-import { Plus } from "lucide-react";
 import { getBrackets } from "@boutforge/api";
 import { canEditPairings } from "@boutforge/shared";
 import { FixturesGroupedList } from "@/components/FixturesGroupedList";
@@ -19,7 +18,7 @@ export default async function FixturesPage() {
         <IconAction
           href="/fixtures/new"
           label="Create fixture"
-          icon={Plus}
+          icon="plus"
           variant="primary"
           mode="responsive"
           className="shrink-0"

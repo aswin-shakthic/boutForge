@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, Pencil } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { getFighterHistory, getFighterOrganizerParticipations } from "@boutforge/api";
 import {
   fighterFullName,
@@ -64,7 +64,7 @@ export default async function FighterDetailPage({
               <IconAction
                 href={`/fighters/${id}/edit`}
                 label="Edit fighter"
-                icon={Pencil}
+                icon="pencil"
                 mode="responsive"
               />
             )}

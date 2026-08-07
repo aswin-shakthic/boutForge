@@ -1,4 +1,3 @@
-import { CalendarPlus, Eye, Pencil } from "lucide-react";
 import { getEvents } from "@boutforge/api";
 import { canEditEvent, canManageEvents } from "@boutforge/shared";
 import { getAppContext } from "@/lib/app-context";
@@ -20,7 +19,7 @@ export default async function EventsPage() {
           <IconAction
             href="/events/new"
             label="Create event"
-            icon={CalendarPlus}
+            icon="calendarPlus"
             variant="primary"
             mode="responsive"
             className="shrink-0"
@@ -61,14 +60,14 @@ export default async function EventsPage() {
                     <IconAction
                       href={`/events/${event.id}`}
                       label="View event"
-                      icon={Eye}
+                      icon="eye"
                       variant="ghost"
                     />
                     {canEdit && (
                       <IconAction
                         href={`/events/${event.id}/edit`}
                         label="Edit event"
-                        icon={Pencil}
+                        icon="pencil"
                         variant="ghost"
                       />
                     )}

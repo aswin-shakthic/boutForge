@@ -1,4 +1,3 @@
-import { Eye, Pencil, Printer, Trophy } from "lucide-react";
 import { groupBracketsByEvent, type BracketListItem } from "@boutforge/shared";
 import { IconAction } from "@/components/ui/IconAction";
 
@@ -42,7 +41,7 @@ export function FixturesGroupedList({
                 <IconAction
                   href={`/events/${eventGroup.eventId}`}
                   label="View event"
-                  icon={Eye}
+                  icon="eye"
                   mode="responsive"
                 />
               )}
@@ -82,7 +81,7 @@ export function FixturesGroupedList({
                         <IconAction
                           href={`/fixtures/${bracket.id}`}
                           label="View bracket"
-                          icon={Trophy}
+                          icon="trophy"
                           variant="primary"
                           mode="icon"
                         />
@@ -90,14 +89,14 @@ export function FixturesGroupedList({
                           <IconAction
                             href={`/fixtures/${bracket.id}/edit`}
                             label="Edit fixture"
-                            icon={Pencil}
+                            icon="pencil"
                             variant="ghost"
                           />
                         )}
                         <IconAction
                           href={`/fixtures/${bracket.id}?print=1`}
                           label="Print bracket"
-                          icon={Printer}
+                          icon="printer"
                           variant="ghost"
                         />
                       </div>

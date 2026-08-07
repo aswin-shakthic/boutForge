@@ -29,6 +29,7 @@ import {
 import type {
   AgeCategory,
   Bout,
+  BoutResult,
   Bracket,
   Club,
   ClubFighterParticipation,
@@ -1410,6 +1411,15 @@ export async function importFightersFromCSV(
   };
 }
 
+function normalizeBoutEmbeds(row: Record<string, unknown>): Bout {
+  const rawResult = row.result;
+  const result = Array.isArray(rawResult)
+    ? ((rawResult[0] as BoutResult | undefined) ?? null)
+    : ((rawResult as BoutResult | null | undefined) ?? null);
+
+  return { ...row, result } as Bout;
+}
+
 export async function getDashboardStats(
   supabase: SupabaseClient,
   clubId: string
@@ -1440,7 +1450,7 @@ export async function getDashboardStats(
     fighterCount: fighters.count ?? 0,
     upcomingCount: bouts.count ?? 0,
     activeBrackets: brackets.count ?? 0,
-    recentResults: (recentResults ?? []) as Bout[],
-    upcomingBouts: (upcomingBouts ?? []) as Bout[],
+    recentResults: (recentResults ?? []).map((row) => normalizeBoutEmbeds(row as Record<string, unknown>)),
+    upcomingBouts: (upcomingBouts ?? []).map((row) => normalizeBoutEmbeds(row as Record<string, unknown>)),
   };
 }
