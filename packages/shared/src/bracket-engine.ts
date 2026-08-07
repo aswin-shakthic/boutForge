@@ -11,131 +11,200 @@ export function countBracketByes(fighterCount: number): number {
   return nextPowerOfTwo(fighterCount) - fighterCount;
 }
 
-type FirstRoundSlot =
-  | { type: "fight"; fighterAId: string; fighterBId: string }
-  | { type: "bye"; fighterId: string }
-  | { type: "empty" };
-
-type FirstRoundPlan = {
-  fightGames: number;
-  singleByeGames: number;
-  emptyGames: number;
+type BuildContext = {
+  bouts: BracketPreviewBout[];
+  boutOrder: number;
 };
 
-export function planFirstRound(
-  fighterCount: number
-): FirstRoundPlan & { bracketSize: number; gameCount: number; byeSlots: number } {
-  const bracketSize = nextPowerOfTwo(fighterCount);
-  const gameCount = bracketSize / 2;
-  const byeSlots = bracketSize - fighterCount;
-
-  const validPlans: Array<
-    FirstRoundPlan & { bracketSize: number; gameCount: number; byeSlots: number }
-  > = [];
-
-  for (let fightGames = Math.floor(fighterCount / 2); fightGames >= 0; fightGames--) {
-    const singleByeGames = fighterCount - fightGames * 2;
-    if (singleByeGames < 0) continue;
-
-    const emptyGames = gameCount - fightGames - singleByeGames;
-    if (emptyGames < 0) continue;
-    if (singleByeGames + emptyGames * 2 !== byeSlots) continue;
-
-    validPlans.push({
-      bracketSize,
-      gameCount,
-      byeSlots,
-      fightGames,
-      singleByeGames,
-      emptyGames,
-    });
-  }
-
-  if (validPlans.length === 0) {
-    return {
-      bracketSize,
-      gameCount,
-      byeSlots,
-      fightGames: 0,
-      singleByeGames: Math.min(fighterCount, byeSlots),
-      emptyGames: Math.max(0, gameCount - Math.min(fighterCount, byeSlots)),
-    };
-  }
-
-  const denseByeField = byeSlots / gameCount >= 0.875;
-  if (denseByeField) {
-    return validPlans.reduce((best, plan) =>
-      plan.fightGames < best.fightGames ? plan : best
-    );
-  }
-
-  const withStructuralEmpties = validPlans.filter((plan) => plan.emptyGames > 0);
-  if (withStructuralEmpties.length > 0) {
-    return withStructuralEmpties.reduce((best, plan) =>
-      plan.fightGames > best.fightGames ? plan : best
-    );
-  }
-
-  return validPlans.reduce((best, plan) =>
-    plan.fightGames > best.fightGames ? plan : best
-  );
+function pushBout(
+  ctx: BuildContext,
+  bout: Omit<BracketPreviewBout, "bout_order" | "label">
+): number {
+  const order = ctx.boutOrder++;
+  ctx.bouts.push({
+    ...bout,
+    bout_order: order,
+    label: `Bout ${order}`,
+  });
+  return order;
 }
 
-function buildSlotTypeSequence(
-  plan: FirstRoundPlan,
-  gameCount: number
-): Array<"fight" | "bye" | "empty"> {
-  const sequence: Array<"fight" | "bye" | "empty"> = [];
-
-  if (plan.fightGames > 0) {
-    sequence.push("fight");
-  }
-
-  for (let i = 0; i < plan.singleByeGames; i++) {
-    sequence.push("bye");
-  }
-
-  for (let i = 1; i < plan.fightGames; i++) {
-    sequence.push("fight");
-  }
-
-  for (let i = 0; i < plan.emptyGames; i++) {
-    sequence.push("empty");
-  }
-
-  while (sequence.length < gameCount) {
-    sequence.push("empty");
-  }
-
-  return sequence;
+function linkAdvancement(
+  ctx: BuildContext,
+  sourceOrder: number,
+  targetOrder: number
+): void {
+  const source = ctx.bouts.find((b) => b.bout_order === sourceOrder);
+  if (source) source.winner_advances_to_order = targetOrder;
 }
 
-export function buildFirstRoundSlots(fighters: FighterInput[]): FirstRoundSlot[] {
-  const plan = planFirstRound(fighters.length);
-  const sequence = buildSlotTypeSequence(plan, plan.gameCount);
-  const slots: FirstRoundSlot[] = [];
-  let idx = 0;
+function createFightBout(
+  ctx: BuildContext,
+  roundNumber: number,
+  fighterAId: string,
+  fighterBId: string
+): number {
+  return pushBout(ctx, {
+    round_number: roundNumber,
+    fighter_a_id: fighterAId,
+    fighter_b_id: fighterBId,
+    slot_a_type: "fighter",
+    slot_b_type: "fighter",
+    source_bout_a_order: null,
+    source_bout_b_order: null,
+    winner_advances_to_order: null,
+  });
+}
 
-  for (const slotType of sequence) {
-    if (slotType === "empty") {
-      slots.push({ type: "empty" });
+function createWinnerFightBout(
+  ctx: BuildContext,
+  roundNumber: number,
+  sourceAOrder: number,
+  sourceBOrder: number
+): number {
+  const order = pushBout(ctx, {
+    round_number: roundNumber,
+    fighter_a_id: null,
+    fighter_b_id: null,
+    slot_a_type: "winner_of",
+    slot_b_type: "winner_of",
+    source_bout_a_order: sourceAOrder,
+    source_bout_b_order: sourceBOrder,
+    winner_advances_to_order: null,
+  });
+  linkAdvancement(ctx, sourceAOrder, order);
+  linkAdvancement(ctx, sourceBOrder, order);
+  return order;
+}
+
+function createWinnerVsFighterBout(
+  ctx: BuildContext,
+  roundNumber: number,
+  sourceOrder: number,
+  fighterId: string
+): number {
+  const order = pushBout(ctx, {
+    round_number: roundNumber,
+    fighter_a_id: null,
+    fighter_b_id: fighterId,
+    slot_a_type: "winner_of",
+    slot_b_type: "fighter",
+    source_bout_a_order: sourceOrder,
+    source_bout_b_order: null,
+    winner_advances_to_order: null,
+  });
+  linkAdvancement(ctx, sourceOrder, order);
+  return order;
+}
+
+function buildStandardRound(
+  ctx: BuildContext,
+  roundNumber: number,
+  sourceOrders: number[]
+): number[] {
+  if (sourceOrders.length <= 1) return sourceOrders;
+
+  const nextOrders: number[] = [];
+  for (let i = 0; i < sourceOrders.length; i += 2) {
+    const sourceA = sourceOrders[i];
+    const sourceB = sourceOrders[i + 1];
+    if (sourceB === undefined) {
+      nextOrders.push(sourceA);
       continue;
     }
-
-    if (slotType === "fight") {
-      slots.push({
-        type: "fight",
-        fighterAId: fighters[idx].id,
-        fighterBId: fighters[idx + 1].id,
-      });
-      idx += 2;
-      continue;
-    }
-
-    slots.push({ type: "bye", fighterId: fighters[idx++].id });
+    nextOrders.push(createWinnerFightBout(ctx, roundNumber, sourceA, sourceB));
   }
 
-  return slots;
+  if (nextOrders.length <= 1) return nextOrders;
+  return buildStandardRound(ctx, roundNumber + 1, nextOrders);
+}
+
+function buildProgressiveStage(
+  ctx: BuildContext,
+  fighters: FighterInput[],
+  stageSize: number,
+  roundNumber: number
+): number[] {
+  const n = fighters.length;
+
+  if (n <= 2) {
+    if (n === 2) {
+      return [createFightBout(ctx, roundNumber, fighters[0].id, fighters[1].id)];
+    }
+    return [];
+  }
+
+  if (n === stageSize * 2) {
+    const sourceOrders: number[] = [];
+    for (let i = 0; i < n; i += 2) {
+      sourceOrders.push(createFightBout(ctx, roundNumber, fighters[i].id, fighters[i + 1].id));
+    }
+    return buildStandardRound(ctx, roundNumber + 1, sourceOrders);
+  }
+
+  if (n > stageSize && n < stageSize * 2) {
+    const prelimCount = n - stageSize;
+    const prelimOrders: number[] = [];
+
+    for (let i = 0; i < prelimCount; i++) {
+      prelimOrders.push(
+        createFightBout(
+          ctx,
+          roundNumber,
+          fighters[i * 2].id,
+          fighters[i * 2 + 1].id
+        )
+      );
+    }
+
+    const waiting = fighters.slice(prelimCount * 2);
+    const stageRound = roundNumber + 1;
+    const stageOrders: number[] = [];
+    const trailingWaiting = waiting.slice(prelimCount);
+
+    for (let i = 0; i + 1 < trailingWaiting.length; i += 2) {
+      stageOrders.push(
+        createFightBout(
+          ctx,
+          stageRound,
+          trailingWaiting[i].id,
+          trailingWaiting[i + 1].id
+        )
+      );
+    }
+
+    for (let i = 0; i < Math.min(prelimCount, waiting.length); i++) {
+      stageOrders.push(
+        createWinnerVsFighterBout(ctx, stageRound, prelimOrders[i], waiting[i].id)
+      );
+    }
+
+    const unpairedQualWinners = prelimOrders.slice(waiting.length);
+    for (let i = 0; i + 1 < unpairedQualWinners.length; i += 2) {
+      stageOrders.push(
+        createWinnerFightBout(ctx, stageRound, unpairedQualWinners[i], unpairedQualWinners[i + 1])
+      );
+    }
+
+    return buildStandardRound(ctx, stageRound + 1, stageOrders);
+  }
+
+  if (n === stageSize) {
+    const sourceOrders: number[] = [];
+    for (let i = 0; i < n; i += 2) {
+      sourceOrders.push(createFightBout(ctx, roundNumber, fighters[i].id, fighters[i + 1].id));
+    }
+    return buildStandardRound(ctx, roundNumber + 1, sourceOrders);
+  }
+
+  return [];
+}
+
+function resolveStageSize(fighterCount: number): number {
+  if (fighterCount <= 4) return 2;
+  if (fighterCount <= 8) return 4;
+  if (fighterCount <= 16) return 8;
+  return 16;
 }
 
 function orderFightersForBye(
@@ -143,105 +212,125 @@ function orderFightersForBye(
   byeFighterId?: string | null
 ): FighterInput[] {
   if (!byeFighterId) return fighters;
-  const index = fighters.findIndex((f) => f.id === byeFighterId);
-  if (index <= 0) return fighters;
+
+  const byeIndex = fighters.findIndex((f) => f.id === byeFighterId);
+  if (byeIndex < 0) return fighters;
+
+  const n = fighters.length;
+  if (n <= 4) return fighters;
+
+  const stageSize = resolveStageSize(n);
+  if (n <= stageSize || n >= stageSize * 2) return fighters;
+
+  const prelimCount = n - stageSize;
+  const byeSlotIndex = prelimCount * 2;
+  if (byeIndex === byeSlotIndex) return fighters;
+
   const next = [...fighters];
-  const [byeFighter] = next.splice(index, 1);
-  const firstByeIndex = buildFirstRoundSlots(fighters).findIndex((slot) => slot.type === "bye");
-  if (firstByeIndex < 0) return fighters;
-  const fightCount = buildFirstRoundSlots(fighters).filter((slot) => slot.type === "fight").length;
-  next.splice(Math.min(fightCount * 2, next.length), 0, byeFighter);
+  const [byeFighter] = next.splice(byeIndex, 1);
+  next.splice(byeSlotIndex, 0, byeFighter);
   return next;
 }
 
-function createFirstRoundBout(
-  slot: FirstRoundSlot,
-  boutOrder: number
-): BracketPreviewBout | null {
-  if (slot.type === "empty") return null;
+function detectByeFighterId(
+  fighters: FighterInput[],
+  bouts: BracketPreviewBout[]
+): string | null {
+  const stageSize = resolveStageSize(fighters.length);
+  const n = fighters.length;
+  if (n <= stageSize || n >= stageSize * 2) return null;
 
-  if (slot.type === "fight") {
-    return {
-      round_number: 1,
-      bout_order: boutOrder,
-      fighter_a_id: slot.fighterAId,
-      fighter_b_id: slot.fighterBId,
-      slot_a_type: "fighter",
-      slot_b_type: "fighter",
-      source_bout_a_order: null,
-      source_bout_b_order: null,
-      winner_advances_to_order: null,
-      label: `Bout ${boutOrder}`,
-    };
-  }
-
-  return {
-    round_number: 1,
-    bout_order: boutOrder,
-    fighter_a_id: slot.fighterId,
-    fighter_b_id: null,
-    slot_a_type: "fighter",
-    slot_b_type: "bye",
-    source_bout_a_order: null,
-    source_bout_b_order: null,
-    winner_advances_to_order: null,
-    label: `Bout ${boutOrder}`,
-  };
+  const prelimCount = n - stageSize;
+  const byeCandidate = fighters[prelimCount * 2];
+  const hasByeSlot = bouts.some(
+    (bout) =>
+      bout.slot_a_type === "winner_of" &&
+      bout.slot_b_type === "fighter" &&
+      bout.fighter_b_id === byeCandidate?.id
+  );
+  return hasByeSlot ? byeCandidate?.id ?? null : null;
 }
 
-function buildSubsequentRounds(
-  initialSources: Array<number | null>,
-  bouts: BracketPreviewBout[],
-  startBoutOrder: number
-): number {
-  let currentSources = initialSources;
-  let roundNumber = 2;
-  let boutOrder = startBoutOrder;
+export function buildFirstRoundSlots(fighters: FighterInput[]): Array<
+  | { type: "fight"; fighterAId: string; fighterBId: string }
+  | { type: "bye"; fighterId: string }
+  | { type: "empty" }
+> {
+  const n = fighters.length;
+  if (n <= 1) return [];
 
-  while (true) {
-    const activeSources = currentSources.filter((source): source is number => source !== null);
-    if (activeSources.length <= 1) break;
+  const stageSize = resolveStageSize(n);
 
-    const nextSources: Array<number | null> = [];
-
-    for (let i = 0; i < currentSources.length; i += 2) {
-      const sourceA = currentSources[i] ?? null;
-      const sourceB = currentSources[i + 1] ?? null;
-
-      if (sourceA && sourceB) {
-        const order = boutOrder++;
-        const maxRound = Math.ceil(Math.log2(nextPowerOfTwo(activeSources.length)));
-        bouts.push({
-          round_number: roundNumber,
-          bout_order: order,
-          fighter_a_id: null,
-          fighter_b_id: null,
-          slot_a_type: "winner_of",
-          slot_b_type: "winner_of",
-          source_bout_a_order: sourceA,
-          source_bout_b_order: sourceB,
-          winner_advances_to_order: null,
-          label: roundNumber === maxRound ? "FINAL" : `Bout ${order}`,
-        });
-
-        const boutA = bouts.find((bout) => bout.bout_order === sourceA);
-        const boutB = bouts.find((bout) => bout.bout_order === sourceB);
-        if (boutA) boutA.winner_advances_to_order = order;
-        if (boutB) boutB.winner_advances_to_order = order;
-
-        nextSources.push(order);
-      } else if (sourceA || sourceB) {
-        nextSources.push(sourceA ?? sourceB);
-      } else {
-        nextSources.push(null);
-      }
+  if (n === stageSize * 2) {
+    const slots: Array<{ type: "fight"; fighterAId: string; fighterBId: string }> = [];
+    for (let i = 0; i < n; i += 2) {
+      slots.push({
+        type: "fight",
+        fighterAId: fighters[i].id,
+        fighterBId: fighters[i + 1].id,
+      });
     }
-
-    currentSources = nextSources;
-    roundNumber++;
+    return slots;
   }
 
-  return boutOrder;
+  if (n > stageSize && n < stageSize * 2) {
+    const prelimCount = n - stageSize;
+    const slots: Array<{ type: "fight"; fighterAId: string; fighterBId: string }> = [];
+
+    for (let i = 0; i < prelimCount; i++) {
+      slots.push({
+        type: "fight",
+        fighterAId: fighters[i * 2].id,
+        fighterBId: fighters[i * 2 + 1].id,
+      });
+    }
+
+    return slots;
+  }
+
+  const slots: Array<{ type: "fight"; fighterAId: string; fighterBId: string }> = [];
+  for (let i = 0; i + 1 < n; i += 2) {
+    slots.push({
+      type: "fight",
+      fighterAId: fighters[i].id,
+      fighterBId: fighters[i + 1].id,
+    });
+  }
+  return slots;
+}
+
+export function planFirstRound(fighterCount: number): {
+  bracketSize: number;
+  gameCount: number;
+  byeSlots: number;
+  fightGames: number;
+  singleByeGames: number;
+  emptyGames: number;
+} {
+  const bracketSize = nextPowerOfTwo(fighterCount);
+  const slots = buildFirstRoundSlots(
+    Array.from({ length: fighterCount }, (_, i) => ({
+      id: `f${i + 1}`,
+      first_name: "Test",
+      last_name: `Fighter${i + 1}`,
+      dob: "2010-01-01",
+      gender: "male" as const,
+      weight_kg: 50,
+      wins: 0,
+      losses: 0,
+      draws: 0,
+      last_bout_at: null,
+    }))
+  );
+
+  return {
+    bracketSize,
+    gameCount: slots.length,
+    byeSlots: countBracketByes(fighterCount),
+    fightGames: slots.filter((slot) => slot.type === "fight").length,
+    singleByeGames: slots.filter((slot) => slot.type === "bye").length,
+    emptyGames: slots.filter((slot) => slot.type === "empty").length,
+  };
 }
 
 export function generateProgressiveKnockoutBracket(
@@ -252,32 +341,25 @@ export function generateProgressiveKnockoutBracket(
   if (n < 2) throw new Error("At least 2 fighters required");
 
   const orderedFighters = orderFightersForBye(fighters, byeFighterId);
-  const slots = buildFirstRoundSlots(orderedFighters);
-  const bouts: BracketPreviewBout[] = [];
-  const roundSources: Array<number | null> = [];
-  let boutOrder = 1;
+  const ctx: BuildContext = { bouts: [], boutOrder: 1 };
+  const stageSize = resolveStageSize(n);
 
-  for (const slot of slots) {
-    if (slot.type === "empty") {
-      roundSources.push(null);
-      continue;
-    }
-
-    const bout = createFirstRoundBout(slot, boutOrder++);
-    if (!bout) continue;
-    bouts.push(bout);
-    roundSources.push(bout.bout_order);
+  if (n <= 4) {
+    buildProgressiveStage(ctx, orderedFighters, 2, 1);
+  } else {
+    buildProgressiveStage(ctx, orderedFighters, stageSize, 1);
   }
 
-  buildSubsequentRounds(roundSources, bouts, boutOrder);
-
-  const byeIds = slots
-    .filter((slot): slot is Extract<FirstRoundSlot, { type: "bye" }> => slot.type === "bye")
-    .map((slot) => slot.fighterId);
+  const maxRound = Math.max(...ctx.bouts.map((b) => b.round_number));
+  for (const bout of ctx.bouts) {
+    if (bout.round_number === maxRound && bout.slot_a_type === "winner_of") {
+      bout.label = "FINAL";
+    }
+  }
 
   return {
-    bouts,
-    byeFighterId: byeFighterId ?? byeIds[0] ?? null,
+    bouts: ctx.bouts,
+    byeFighterId: byeFighterId ?? detectByeFighterId(orderedFighters, ctx.bouts),
   };
 }
 

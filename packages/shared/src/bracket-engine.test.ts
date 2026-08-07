@@ -41,74 +41,85 @@ describe("countBracketByes", () => {
 });
 
 describe("buildFirstRoundSlots", () => {
-  it("pairs 1v2, gives 3 a bye, and pairs 4v5 for five fighters", () => {
+  it("opens with one qualification bout for five fighters", () => {
     const slots = buildFirstRoundSlots(fighters(5));
 
-    expect(slots).toEqual([
-      { type: "fight", fighterAId: "f1", fighterBId: "f2" },
-      { type: "bye", fighterId: "f3" },
-      { type: "fight", fighterAId: "f4", fighterBId: "f5" },
-      { type: "empty" },
-    ]);
+    expect(slots).toEqual([{ type: "fight", fighterAId: "f1", fighterBId: "f2" }]);
   });
 
-  it("creates one fight and seven byes for nine fighters", () => {
+  it("opens with one qualification bout for nine fighters", () => {
     const slots = buildFirstRoundSlots(fighters(9));
 
-    expect(slots.filter((slot) => slot.type === "fight")).toHaveLength(1);
-    expect(slots.filter((slot) => slot.type === "bye")).toHaveLength(7);
-    expect(slots[0]).toEqual({
-      type: "fight",
-      fighterAId: "f1",
-      fighterBId: "f2",
-    });
-    expect(slots.slice(1).every((slot) => slot.type === "bye")).toBe(true);
+    expect(slots).toEqual([{ type: "fight", fighterAId: "f1", fighterBId: "f2" }]);
   });
 });
 
 describe("generateBracketBouts", () => {
-  it("builds a full eight-bracket for five fighters", () => {
+  it("builds fight-1 style bracket for five fighters", () => {
     const { bouts, byeFighterId } = generateBracketBouts(
       "progressive_knockout",
       fighters(5)
     );
 
     expect(byeFighterId).toBe("f3");
-    expect(bouts.filter((b) => b.round_number === 1)).toHaveLength(3);
+    expect(bouts).toHaveLength(4);
+    expect(bouts.filter((b) => b.round_number === 1)).toHaveLength(1);
     expect(bouts.some((b) => b.fighter_a_id === "f1" && b.fighter_b_id === "f2")).toBe(true);
     expect(bouts.some((b) => b.fighter_a_id === "f4" && b.fighter_b_id === "f5")).toBe(true);
-    expect(bouts.some((b) => b.fighter_a_id === "f3" && b.slot_b_type === "bye")).toBe(true);
-    expect(bouts.some((b) => b.round_number === 3)).toBe(true);
+    expect(
+      bouts.some(
+        (b) =>
+          b.source_bout_a_order === 1 &&
+          b.fighter_b_id === "f3" &&
+          b.slot_a_type === "winner_of"
+      )
+    ).toBe(true);
+    expect(bouts.some((b) => b.label === "FINAL")).toBe(true);
   });
 
   it("routes the game 1 winner through the bye fighter into the final", () => {
     const { bouts } = generateBracketBouts("progressive_knockout", fighters(5));
     const game1 = bouts.find((b) => b.fighter_a_id === "f1" && b.fighter_b_id === "f2");
-    const game3 = bouts.find((b) => b.fighter_a_id === "f4" && b.fighter_b_id === "f5");
-    const byeGame = bouts.find((b) => b.fighter_a_id === "f3" && b.slot_b_type === "bye");
+    const game2 = bouts.find((b) => b.fighter_a_id === "f4" && b.fighter_b_id === "f5");
     const semi = bouts.find(
-      (b) =>
-        b.source_bout_a_order === game1?.bout_order &&
-        b.source_bout_b_order === byeGame?.bout_order
+      (b) => b.source_bout_a_order === game1?.bout_order && b.fighter_b_id === "f3"
     );
     const final = bouts.find(
       (b) =>
-        b.source_bout_a_order === semi?.bout_order &&
-        b.source_bout_b_order === game3?.bout_order
+        b.source_bout_a_order === game2?.bout_order &&
+        b.source_bout_b_order === semi?.bout_order
     );
 
     expect(semi).toBeDefined();
     expect(final).toBeDefined();
   });
 
-  it("builds a sixteen-bracket with one opening fight for nine fighters", () => {
+  it("builds fight-2 style bracket for six fighters", () => {
+    const { bouts } = generateBracketBouts("progressive_knockout", fighters(6));
+
+    expect(bouts).toHaveLength(5);
+    expect(bouts.filter((b) => b.round_number === 1)).toHaveLength(2);
+    expect(bouts.some((b) => b.fighter_a_id === "f1" && b.fighter_b_id === "f2")).toBe(true);
+    expect(bouts.some((b) => b.fighter_a_id === "f3" && b.fighter_b_id === "f4")).toBe(true);
+    expect(
+      bouts.some(
+        (b) => b.source_bout_a_order === 1 && b.fighter_b_id === "f5" && b.slot_a_type === "winner_of"
+      )
+    ).toBe(true);
+    expect(
+      bouts.some(
+        (b) => b.source_bout_a_order === 2 && b.fighter_b_id === "f6" && b.slot_a_type === "winner_of"
+      )
+    ).toBe(true);
+    expect(bouts.some((b) => b.label === "FINAL")).toBe(true);
+  });
+
+  it("builds a quarter-final stage for nine fighters", () => {
     const { bouts } = generateBracketBouts("progressive_knockout", fighters(9));
 
-    expect(bouts.filter((b) => b.round_number === 1)).toHaveLength(8);
-    expect(bouts.filter((b) => b.round_number === 1 && b.slot_b_type === "fighter")).toHaveLength(1);
-    expect(bouts.filter((b) => b.round_number === 1 && b.slot_b_type === "bye")).toHaveLength(7);
+    expect(bouts.filter((b) => b.round_number === 1)).toHaveLength(1);
     expect(bouts.filter((b) => b.round_number === 2)).toHaveLength(4);
-    expect(bouts.some((b) => b.round_number === 4)).toBe(true);
+    expect(bouts.some((b) => b.label === "FINAL")).toBe(true);
   });
 
   it("builds progressive knockout bouts for even fighter counts", () => {
@@ -166,21 +177,21 @@ describe("resolveInitialBoutStatus", () => {
     expect(resolveInitialBoutStatus(preview)).toBe("scheduled");
   });
 
-  it("marks single-fighter bye bouts as scheduled", () => {
+  it("marks winner-vs-bye slots as pending until the source bout completes", () => {
     const preview: BracketPreviewBout = {
-      round_number: 1,
-      bout_order: 2,
-      fighter_a_id: "f3",
-      fighter_b_id: null,
-      slot_a_type: "fighter",
-      slot_b_type: "bye",
-      source_bout_a_order: null,
+      round_number: 2,
+      bout_order: 3,
+      fighter_a_id: null,
+      fighter_b_id: "f3",
+      slot_a_type: "winner_of",
+      slot_b_type: "fighter",
+      source_bout_a_order: 1,
       source_bout_b_order: null,
       winner_advances_to_order: null,
-      label: "Game 2",
+      label: "Game 3",
     };
 
-    expect(resolveInitialBoutStatus(preview)).toBe("scheduled");
+    expect(resolveInitialBoutStatus(preview)).toBe("pending_fighters");
   });
 
   it("marks winner-of slots as pending fighters", () => {
