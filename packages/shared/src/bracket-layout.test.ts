@@ -37,8 +37,9 @@ describe("organizeBoutsByRound", () => {
 });
 
 describe("getMatchGameLabel", () => {
-  it("formats round and game index", () => {
-    expect(getMatchGameLabel("QF", 0)).toBe("QF · Game 1");
+  it("formats round label with global bout order", () => {
+    expect(getMatchGameLabel("SF", 3)).toBe("SF · Game 3");
+    expect(getMatchGameLabel("QF", 5)).toBe("QF · Game 5");
   });
 });
 

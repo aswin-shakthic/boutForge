@@ -20,6 +20,18 @@ import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { usePendingLoads } from "@/hooks/usePendingLoads";
 import { ResultEntryModal } from "./ResultEntryModal";
 
+function resolveSlotFighter(
+  bout: Bout,
+  slot: "a" | "b",
+  fighters: Fighter[]
+): Fighter | null {
+  const embedded = slot === "a" ? bout.fighter_a : bout.fighter_b;
+  if (embedded) return embedded;
+  const fighterId = slot === "a" ? bout.fighter_a_id : bout.fighter_b_id;
+  if (!fighterId) return null;
+  return fighters.find((f) => f.id === fighterId) ?? null;
+}
+
 function sourceLabel(bout: Bout, bouts: Bout[], slot: "a" | "b"): string {
   const sourceId = slot === "a" ? bout.source_bout_a_id : bout.source_bout_b_id;
   if (!sourceId) return "TBD";
@@ -141,22 +153,59 @@ function applyFighterAssignment(
   });
 }
 
-function slotClubName(bout: Bout, slot: "a" | "b"): string | null {
+function slotClubName(bout: Bout, slot: "a" | "b", fighters: Fighter[]): string | null {
   const slotType = slot === "a" ? bout.slot_a_type : bout.slot_b_type;
-  const fighter = slot === "a" ? bout.fighter_a : bout.fighter_b;
+  const fighter = resolveSlotFighter(bout, slot, fighters);
 
-  if (slotType === "bye" || slotType === "winner_of" || !fighter) return null;
+  if (slotType === "winner_of" || !fighter) return null;
   return getFighterClubDisplayName(fighter);
 }
 
-function slotDisplayName(bout: Bout, slot: "a" | "b", bouts: Bout[]): string {
+function slotDisplayName(bout: Bout, slot: "a" | "b", bouts: Bout[], fighters: Fighter[]): string {
   const slotType = slot === "a" ? bout.slot_a_type : bout.slot_b_type;
-  const fighter = slot === "a" ? bout.fighter_a : bout.fighter_b;
+  const fighter = resolveSlotFighter(bout, slot, fighters);
 
-  if (slotType === "bye") return "BYE";
+  if (slotType === "bye") {
+    return fighter ? `${fighterFullName(fighter)} (BYE)` : "BYE";
+  }
   if (slotType === "winner_of") return sourceLabel(bout, bouts, slot);
   if (fighter) return fighterFullName(fighter);
   return "TBD";
+}
+
+function collectBracketParticipants(
+  bouts: Bout[],
+  fighters: Fighter[],
+  byeFighterId?: string | null
+): Fighter[] {
+  const byId = new Map<string, Fighter>();
+
+  for (const fighter of fighters) {
+    byId.set(fighter.id, fighter);
+  }
+
+  for (const bout of bouts) {
+    if (bout.fighter_a) byId.set(bout.fighter_a.id, bout.fighter_a);
+    if (bout.fighter_b) byId.set(bout.fighter_b.id, bout.fighter_b);
+    if (bout.fighter_a_id && !byId.has(bout.fighter_a_id)) {
+      const match = fighters.find((f) => f.id === bout.fighter_a_id);
+      if (match) byId.set(match.id, match);
+    }
+    if (bout.fighter_b_id && !byId.has(bout.fighter_b_id)) {
+      const match = fighters.find((f) => f.id === bout.fighter_b_id);
+      if (match) byId.set(match.id, match);
+    }
+  }
+
+  if (byeFighterId && !byId.has(byeFighterId)) {
+    const byeFighter = fighters.find((f) => f.id === byeFighterId);
+    if (byeFighter) byId.set(byeFighter.id, byeFighter);
+  }
+
+  return [...byId.values()].sort(
+    (a, b) =>
+      a.last_name.localeCompare(b.last_name) || a.first_name.localeCompare(b.first_name)
+  );
 }
 
 function slotScoreMark(bout: Bout, slot: "a" | "b"): string {
@@ -211,8 +260,8 @@ function BracketFixtureRow({
     .filter(Boolean)
     .join(" ");
 
-  const displayName = slotDisplayName(bout, slot, bouts);
-  const clubName = slotClubName(bout, slot);
+  const displayName = slotDisplayName(bout, slot, bouts, fighters);
+  const clubName = slotClubName(bout, slot, fighters);
 
   return (
     <div className="bracket-fixture-row">
@@ -252,7 +301,6 @@ function BracketFixtureRow({
 function BracketFixture({
   bout,
   roundLabel,
-  gameIndex,
   isLastRound,
   fighters,
   bouts,
@@ -263,7 +311,6 @@ function BracketFixture({
 }: {
   bout: Bout;
   roundLabel: string;
-  gameIndex: number;
   isLastRound: boolean;
   fighters: Fighter[];
   bouts: Bout[];
@@ -276,7 +323,7 @@ function BracketFixture({
 
   return (
     <div className="bracket-fixture">
-      <p className="bracket-fixture-label">{getMatchGameLabel(roundLabel, gameIndex)}</p>
+      <p className="bracket-fixture-label">{getMatchGameLabel(roundLabel, bout.bout_order)}</p>
       <div className="bracket-fixture-box">
         <BracketFixtureRow
           bout={bout}
@@ -307,6 +354,45 @@ function BracketFixture({
         </div>
       )}
       {!isLastRound && <span className="bracket-fixture-connector" aria-hidden />}
+    </div>
+  );
+}
+
+function BracketParticipantTable({
+  participants,
+  byeFighterId,
+}: {
+  participants: Fighter[];
+  byeFighterId?: string | null;
+}) {
+  if (participants.length === 0) return null;
+
+  return (
+    <div className="bracket-participant-table-wrap mb-8">
+      <h2 className="text-sm font-semibold text-navy mb-3 px-3 pt-3 sm:px-4">Registered Fighters</h2>
+      <div className="overflow-x-auto">
+        <table className="bracket-participant-table w-full text-sm">
+          <thead>
+            <tr>
+              <th className="text-left">#</th>
+              <th className="text-left">Fighter</th>
+              <th className="text-left">Club</th>
+            </tr>
+          </thead>
+          <tbody>
+            {participants.map((fighter, index) => (
+              <tr key={fighter.id}>
+                <td>{index + 1}</td>
+                <td>
+                  {fighterFullName(fighter)}
+                  {byeFighterId === fighter.id ? " (BYE)" : ""}
+                </td>
+                <td>{getFighterClubDisplayName(fighter)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -375,13 +461,13 @@ export function BracketView({
   }, [bouts, fighters]);
 
   const participantCount = useMemo(() => {
-    const ids = new Set<string>();
-    for (const bout of bouts) {
-      if (bout.fighter_a_id) ids.add(bout.fighter_a_id);
-      if (bout.fighter_b_id) ids.add(bout.fighter_b_id);
-    }
-    return ids.size;
-  }, [bouts]);
+    return collectBracketParticipants(bouts, fighters, bracket.bye_fighter_id).length;
+  }, [bouts, fighters, bracket.bye_fighter_id]);
+
+  const participants = useMemo(
+    () => collectBracketParticipants(bouts, fighters, bracket.bye_fighter_id),
+    [bouts, fighters, bracket.bye_fighter_id]
+  );
 
   const tournamentTitle =
     participantCount > 0
@@ -457,6 +543,11 @@ export function BracketView({
           </p>
         </div>
 
+        <BracketParticipantTable
+          participants={participants}
+          byeFighterId={bracket.bye_fighter_id}
+        />
+
         {rounds.length === 0 ? (
           <p className="text-center text-gray-500">No matches in this bracket yet.</p>
         ) : (
@@ -475,12 +566,11 @@ export function BracketView({
                     className="bracket-round-matches"
                     style={{ minHeight: treeMinHeight - 40 }}
                   >
-                    {round.bouts.map((bout, index) => (
+                    {round.bouts.map((bout) => (
                       <BracketFixture
                         key={bout.id}
                         bout={bout}
                         roundLabel={round.label}
-                        gameIndex={index}
                         isLastRound={roundIndex === rounds.length - 1}
                         fighters={fighters}
                         bouts={bouts}

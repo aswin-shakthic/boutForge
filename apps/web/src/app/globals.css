@@ -166,6 +166,30 @@ body {
   .bracket-scroll-hint {
     @apply text-xs text-gray-400 mb-2 sm:hidden;
   }
+
+  .bracket-participant-table-wrap {
+    @apply border border-gray-200 rounded-lg bg-white overflow-hidden;
+  }
+
+  .bracket-participant-table {
+    @apply border-collapse;
+  }
+
+  .bracket-participant-table thead {
+    @apply bg-gray-50 border-b border-gray-200;
+  }
+
+  .bracket-participant-table th {
+    @apply px-3 py-2 text-xs font-medium uppercase tracking-wide text-gray-500;
+  }
+
+  .bracket-participant-table td {
+    @apply px-3 py-2 border-t border-gray-100 text-gray-800;
+  }
+
+  .bracket-participant-table td:first-child {
+    @apply w-10 text-gray-500;
+  }
 }
 
 @media print {
@@ -213,5 +237,9 @@ body {
 
   .bracket-fixture-name-print {
     display: block !important;
+  }
+
+  .bracket-participant-table-wrap {
+    break-inside: avoid;
   }
 }

@@ -28,8 +28,8 @@ export function getRoundShortLabel(
   return `R${roundNumber}`;
 }
 
-export function getMatchGameLabel(roundLabel: string, gameIndex: number): string {
-  return `${roundLabel} · Game ${gameIndex + 1}`;
+export function getMatchGameLabel(roundLabel: string, boutOrder: number): string {
+  return `${roundLabel} · Game ${boutOrder}`;
 }
 
 export function getBracketMatchMarginTop(
