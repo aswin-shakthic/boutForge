@@ -153,24 +153,38 @@ function applyFighterAssignment(
   });
 }
 
-function slotClubName(bout: Bout, slot: "a" | "b", fighters: Fighter[]): string | null {
+function slotDisplayName(
+  bout: Bout,
+  slot: "a" | "b",
+  bouts: Bout[],
+  fighters: Fighter[]
+): string {
   const slotType = slot === "a" ? bout.slot_a_type : bout.slot_b_type;
   const fighter = resolveSlotFighter(bout, slot, fighters);
-
-  if (slotType === "winner_of" || !fighter) return null;
-  return getFighterClubDisplayName(fighter);
-}
-
-function slotDisplayName(bout: Bout, slot: "a" | "b", bouts: Bout[], fighters: Fighter[]): string {
-  const slotType = slot === "a" ? bout.slot_a_type : bout.slot_b_type;
-  const fighter = resolveSlotFighter(bout, slot, fighters);
+  const opponentType = slot === "a" ? bout.slot_b_type : bout.slot_a_type;
 
   if (slotType === "bye") {
     return fighter ? `${fighterFullName(fighter)} (BYE)` : "BYE";
   }
   if (slotType === "winner_of") return sourceLabel(bout, bouts, slot);
-  if (fighter) return fighterFullName(fighter);
+  if (fighter) {
+    if (opponentType === "bye") return `${fighterFullName(fighter)} (BYE)`;
+    return fighterFullName(fighter);
+  }
   return "TBD";
+}
+
+function slotClubName(bout: Bout, slot: "a" | "b", fighters: Fighter[]): string | null {
+  const slotType = slot === "a" ? bout.slot_a_type : bout.slot_b_type;
+  const fighter = resolveSlotFighter(bout, slot, fighters);
+  const opponentType = slot === "a" ? bout.slot_b_type : bout.slot_a_type;
+
+  if (slotType === "winner_of" || slotType === "bye" && !fighter) return null;
+  if (!fighter) return null;
+  if (slotType === "bye" || opponentType === "bye") {
+    return getFighterClubDisplayName(fighter);
+  }
+  return getFighterClubDisplayName(fighter);
 }
 
 function collectBracketParticipants(
