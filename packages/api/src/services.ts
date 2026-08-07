@@ -558,6 +558,21 @@ export async function updateFighter(
   return data as Fighter;
 }
 
+export async function deleteFighter(
+  supabase: SupabaseClient,
+  fighterId: string
+): Promise<void> {
+  const { error } = await supabase.from("fighters").delete().eq("id", fighterId);
+  if (error) {
+    if (error.code === "23503") {
+      throw new Error(
+        "This fighter cannot be deleted because they are linked to bouts or fixtures."
+      );
+    }
+    throw error;
+  }
+}
+
 export async function getFighterHistory(
   supabase: SupabaseClient,
   fighterId: string
@@ -930,6 +945,14 @@ export async function updateBracket(
   return data as Bracket;
 }
 
+export async function deleteBracket(
+  supabase: SupabaseClient,
+  bracketId: string
+): Promise<void> {
+  const { error } = await supabase.from("brackets").delete().eq("id", bracketId);
+  if (error) throw error;
+}
+
 export async function resolveFixtureCategoryIds(
   supabase: SupabaseClient,
   clubId: string,
@@ -1181,6 +1204,62 @@ export async function publishEvent(
     .from("events")
     .update({ status: "published" })
     .eq("id", eventId);
+  if (error) throw error;
+}
+
+export async function updateEvent(
+  supabase: SupabaseClient,
+  eventId: string,
+  input: EventInput,
+  clubIds?: string[]
+): Promise<Event> {
+  const competitionYear = input.date ? new Date(input.date).getFullYear() : null;
+  const { data, error } = await supabase
+    .from("events")
+    .update({
+      name: input.name.trim(),
+      date: input.date,
+      venue: input.venue?.trim() || null,
+      state_zone: input.state_zone?.trim() || null,
+      is_cross_club: input.is_cross_club,
+      ...(competitionYear ? { competition_year: competitionYear } : {}),
+    })
+    .eq("id", eventId)
+    .select("*, event_clubs(*, club:clubs(*))")
+    .single();
+  if (error) throw error;
+
+  if (clubIds !== undefined) {
+    const { error: deleteError } = await supabase
+      .from("event_clubs")
+      .delete()
+      .eq("event_id", eventId);
+    if (deleteError) throw deleteError;
+
+    if (clubIds.length > 0) {
+      const { error: insertError } = await supabase.from("event_clubs").insert(
+        clubIds.map((clubId) => ({ event_id: eventId, club_id: clubId }))
+      );
+      if (insertError) throw insertError;
+    }
+
+    const { data: refreshed, error: refreshError } = await supabase
+      .from("events")
+      .select("*, event_clubs(*, club:clubs(*))")
+      .eq("id", eventId)
+      .single();
+    if (refreshError) throw refreshError;
+    return refreshed as Event;
+  }
+
+  return data as Event;
+}
+
+export async function deleteEvent(
+  supabase: SupabaseClient,
+  eventId: string
+): Promise<void> {
+  const { error } = await supabase.from("events").delete().eq("id", eventId);
   if (error) throw error;
 }
 

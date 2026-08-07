@@ -5,14 +5,16 @@ import {
   fighterRecord,
   getAgeFromDob,
   getFighterClubDisplayName,
+  canManageFighters,
 } from "@boutforge/shared";
 import { getAppContext } from "@/lib/app-context";
 
 export default async function FightersPage() {
-  const { supabase, clubIds } = await getAppContext();
+  const { supabase, clubIds, membership } = await getAppContext();
   if (clubIds.length === 0) return <p>No club</p>;
 
   const fighters = await getFighters(supabase, clubIds);
+  const canEdit = membership ? canManageFighters(membership.role) : false;
 
   return (
     <div className="space-y-6">
@@ -60,12 +62,22 @@ export default async function FightersPage() {
                     {fighter.weight_class?.name ?? "—"}
                   </span>
                 </div>
-                <Link
-                  href={`/fighters/${fighter.id}`}
-                  className="btn-secondary w-full text-sm text-center"
-                >
-                  View profile
-                </Link>
+                <div className="flex flex-wrap gap-2">
+                  <Link
+                    href={`/fighters/${fighter.id}`}
+                    className="btn-secondary flex-1 text-sm text-center"
+                  >
+                    View profile
+                  </Link>
+                  {canEdit && (
+                    <Link
+                      href={`/fighters/${fighter.id}/edit`}
+                      className="btn-secondary flex-1 text-sm text-center"
+                    >
+                      Edit
+                    </Link>
+                  )}
+                </div>
               </article>
             ))}
           </div>
@@ -120,12 +132,22 @@ export default async function FightersPage() {
                         {fighterRecord(fighter)}
                       </td>
                       <td className="px-4 lg:px-6 py-4">
-                        <Link
-                          href={`/fighters/${fighter.id}`}
-                          className="text-boxing text-sm hover:underline"
-                        >
-                          View
-                        </Link>
+                        <div className="flex flex-wrap gap-3">
+                          <Link
+                            href={`/fighters/${fighter.id}`}
+                            className="text-boxing text-sm hover:underline"
+                          >
+                            View
+                          </Link>
+                          {canEdit && (
+                            <Link
+                              href={`/fighters/${fighter.id}/edit`}
+                              className="text-gray-600 text-sm hover:underline"
+                            >
+                              Edit
+                            </Link>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}

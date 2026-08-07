@@ -47,6 +47,13 @@ export const eventSchema = z.object({
   is_cross_club: z.boolean().default(false),
 });
 
+export const bracketEditSchema = z.object({
+  name: z.string().min(2, "Bracket name is required"),
+  status: z.enum(["draft", "published", "in_progress", "completed"]),
+  venue: z.string().optional().nullable(),
+  scheduled_date: z.string().optional().nullable(),
+});
+
 export const bracketSchema = z.object({
   name: z.string().min(2, "Bracket name is required"),
   format: z.enum(["progressive_knockout", "round_robin", "manual"]),
@@ -70,3 +77,4 @@ export type FighterFormInput = z.infer<typeof fighterSchema>;
 export type BoutResultInput = z.infer<typeof boutResultSchema>;
 export type EventInput = z.infer<typeof eventSchema>;
 export type BracketInput = z.infer<typeof bracketSchema>;
+export type BracketEditInput = z.infer<typeof bracketEditSchema>;

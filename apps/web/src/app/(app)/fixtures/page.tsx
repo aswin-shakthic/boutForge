@@ -1,13 +1,15 @@
 import { getBrackets } from "@boutforge/api";
+import { canEditPairings } from "@boutforge/shared";
 import { FixturesGroupedList } from "@/components/FixturesGroupedList";
 import { getAppContext } from "@/lib/app-context";
 import Link from "next/link";
 
 export default async function FixturesPage() {
-  const { supabase, clubId } = await getAppContext();
+  const { supabase, clubId, membership } = await getAppContext();
   if (!clubId) return <p>No club</p>;
 
   const brackets = await getBrackets(supabase, clubId);
+  const canEdit = membership ? canEditPairings(membership.role) : false;
 
   return (
     <div className="space-y-6">
@@ -22,7 +24,7 @@ export default async function FixturesPage() {
         Grouped by event, then age category and weight class.
       </p>
 
-      <FixturesGroupedList brackets={brackets} />
+      <FixturesGroupedList brackets={brackets} canEdit={canEdit} />
     </div>
   );
 }

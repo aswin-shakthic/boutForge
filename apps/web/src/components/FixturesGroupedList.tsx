@@ -5,7 +5,13 @@ function formatLabel(value: string) {
   return value.replace(/_/g, " ");
 }
 
-export function FixturesGroupedList({ brackets }: { brackets: BracketListItem[] }) {
+export function FixturesGroupedList({
+  brackets,
+  canEdit = false,
+}: {
+  brackets: BracketListItem[];
+  canEdit?: boolean;
+}) {
   const eventGroups = groupBracketsByEvent(brackets);
 
   if (eventGroups.length === 0) {
@@ -72,6 +78,14 @@ export function FixturesGroupedList({ brackets }: { brackets: BracketListItem[] 
                         <Link href={`/fixtures/${bracket.id}`} className="btn-primary text-sm text-center">
                           View bracket
                         </Link>
+                        {canEdit && (
+                          <Link
+                            href={`/fixtures/${bracket.id}/edit`}
+                            className="btn-secondary text-sm text-center"
+                          >
+                            Edit
+                          </Link>
+                        )}
                         <Link
                           href={`/fixtures/${bracket.id}?print=1`}
                           className="btn-secondary text-sm text-center"

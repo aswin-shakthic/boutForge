@@ -86,3 +86,60 @@ export function canManageClub(role: UserRole): boolean {
 export function canAccessAdmin(role: UserRole, isPlatformAdmin?: boolean): boolean {
   return isPlatformAdmin || role === "platform_admin";
 }
+
+type EventAccessContext = {
+  isPlatformAdmin?: boolean;
+  userId?: string | null;
+  organizerUserId?: string | null;
+  organizerClubId?: string | null;
+  userClubId?: string | null;
+};
+
+export function canEditEvent(
+  role: UserRole | null | undefined,
+  context: EventAccessContext
+): boolean {
+  if (context.isPlatformAdmin) return true;
+  if (context.userId && context.organizerUserId === context.userId) return true;
+  if (
+    context.userClubId &&
+    context.organizerClubId &&
+    context.userClubId === context.organizerClubId &&
+    role &&
+    (role === "club_admin" || role === "coach")
+  ) {
+    return true;
+  }
+  return false;
+}
+
+export function canDeleteEvent(
+  role: UserRole | null | undefined,
+  context: EventAccessContext
+): boolean {
+  if (context.isPlatformAdmin) return true;
+  if (context.userId && context.organizerUserId === context.userId) return true;
+  if (
+    context.userClubId &&
+    context.organizerClubId &&
+    context.userClubId === context.organizerClubId &&
+    role === "club_admin"
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/** Matches RLS fighters_delete — club admins only (not coaches). */
+export function canDeleteFighters(role: UserRole, isPlatformAdmin?: boolean): boolean {
+  return isPlatformAdmin || role === "platform_admin" || role === "club_admin";
+}
+
+export function canDeleteBracket(role: UserRole, isPlatformAdmin?: boolean): boolean {
+  return (
+    isPlatformAdmin ||
+    role === "platform_admin" ||
+    canEditPairings(role) ||
+    role === "club_admin"
+  );
+}

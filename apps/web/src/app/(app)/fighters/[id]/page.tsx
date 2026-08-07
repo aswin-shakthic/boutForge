@@ -8,8 +8,10 @@ import {
   BOUT_METHOD_LABELS,
   participationRecord,
   canManageFighters,
+  canDeleteFighters,
 } from "@boutforge/shared";
 import { getAppContext } from "@/lib/app-context";
+import { DeleteFighterButton } from "@/components/DeleteFighterButton";
 
 export default async function FighterDetailPage({
   params,
@@ -17,7 +19,7 @@ export default async function FighterDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { supabase, membership } = await getAppContext();
+  const { supabase, membership, profile } = await getAppContext();
 
   const { data: fighter } = await supabase
     .from("fighters")
@@ -35,6 +37,9 @@ export default async function FighterDetailPage({
   ]);
 
   const canEdit = membership ? canManageFighters(membership.role) : false;
+  const canDelete = membership
+    ? canDeleteFighters(membership.role, profile?.is_platform_admin)
+    : false;
 
   return (
     <div className="space-y-6">
@@ -47,10 +52,20 @@ export default async function FighterDetailPage({
             {fighterFullName(fighter)}
           </h1>
         </div>
-        {canEdit && (
-          <Link href={`/fighters/${id}/edit`} className="btn-secondary text-sm">
-            Edit fighter
-          </Link>
+        {(canEdit || canDelete) && (
+          <div className="flex flex-wrap gap-2">
+            {canEdit && (
+              <Link href={`/fighters/${id}/edit`} className="btn-secondary text-sm">
+                Edit fighter
+              </Link>
+            )}
+            {canDelete && (
+              <DeleteFighterButton
+                fighterId={id}
+                fighterName={fighterFullName(fighter)}
+              />
+            )}
+          </div>
         )}
       </div>
 

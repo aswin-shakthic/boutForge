@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { getBracketsByEvent } from "@boutforge/api";
+import { canDeleteEvent, canEditEvent } from "@boutforge/shared";
 import { getAppContext } from "@/lib/app-context";
 import { EventCategoriesEditor } from "@/components/EventCategoriesEditor";
+import { DeleteEventButton } from "@/components/DeleteEventButton";
 import { PublishEventButton } from "./PublishEventButton";
 
 export default async function EventDetailPage({
@@ -10,7 +12,7 @@ export default async function EventDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { supabase, membership, profile } = await getAppContext();
+  const { supabase, membership, profile, user, clubId } = await getAppContext();
 
   const { data: event } = await supabase
     .from("events")
@@ -21,11 +23,15 @@ export default async function EventDetailPage({
   if (!event) return <p>Event not found</p>;
 
   const brackets = await getBracketsByEvent(supabase, id);
-  const canEditEvent =
-    profile?.is_platform_admin ||
-    event.organizer_user_id === profile?.id ||
-    (membership?.club_id === event.organizer_club_id &&
-      (membership.role === "club_admin" || membership.role === "coach"));
+  const accessContext = {
+    isPlatformAdmin: profile?.is_platform_admin,
+    userId: user.id,
+    organizerUserId: event.organizer_user_id,
+    organizerClubId: event.organizer_club_id,
+    userClubId: clubId,
+  };
+  const canEditEventAccess = canEditEvent(membership?.role, accessContext);
+  const canDeleteEventAccess = canDeleteEvent(membership?.role, accessContext);
 
   return (
     <div className="space-y-6">
@@ -47,6 +53,14 @@ export default async function EventDetailPage({
         </div>
 
         <div className="page-actions">
+          {canEditEventAccess && (
+            <Link
+              href={`/events/${event.id}/edit`}
+              className="btn-secondary text-sm flex-1 sm:flex-none text-center"
+            >
+              Edit event
+            </Link>
+          )}
           <Link
             href={`/fixtures/new?eventId=${event.id}`}
             className="btn-primary text-sm flex-1 sm:flex-none text-center"
@@ -54,9 +68,12 @@ export default async function EventDetailPage({
             + Add brackets
           </Link>
           {event.status === "draft" && <PublishEventButton eventId={event.id} />}
+          {canDeleteEventAccess && (
+            <DeleteEventButton eventId={event.id} eventName={event.name} />
+          )}
         </div>
 
-        {canEditEvent && (
+        {canEditEventAccess && (
           <div className="border-t border-gray-100 pt-6">
             <EventCategoriesEditor eventId={event.id} />
           </div>

@@ -4,17 +4,19 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { getUserClubs, updateFighter } from "@boutforge/api";
-import { canManageFighters, fighterSchema } from "@boutforge/shared";
+import { getProfile, getUserClubs, updateFighter } from "@boutforge/api";
+import { canDeleteFighters, canManageFighters, fighterSchema } from "@boutforge/shared";
 import type { ClubMember, Fighter } from "@boutforge/shared";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { usePendingLoads } from "@/hooks/usePendingLoads";
+import { DeleteFighterButton } from "@/components/DeleteFighterButton";
 
 export function EditFighterForm({ fighter }: { fighter: Fighter }) {
   const router = useRouter();
   const supabase = createClient();
   const [memberships, setMemberships] = useState<ClubMember[]>([]);
   const [canEdit, setCanEdit] = useState(false);
+  const [canDelete, setCanDelete] = useState(false);
   const [form, setForm] = useState({
     first_name: fighter.first_name,
     last_name: fighter.last_name,
@@ -40,11 +42,15 @@ export function EditFighterForm({ fighter }: { fighter: Fighter }) {
         if (!user) return;
 
         const clubs = await getUserClubs(supabase, user.id);
+        const profile = await getProfile(supabase, user.id);
         if (!active) return;
 
         setMemberships(clubs);
         const membership = clubs.find((entry) => entry.club_id === fighter.club_id);
         setCanEdit(membership ? canManageFighters(membership.role) : false);
+        setCanDelete(
+          membership ? canDeleteFighters(membership.role, profile?.is_platform_admin) : false
+        );
       } finally {
         if (active) end();
       }
@@ -219,6 +225,19 @@ export function EditFighterForm({ fighter }: { fighter: Fighter }) {
             {loading ? "Saving..." : "Save changes"}
           </button>
         </form>
+
+        {canDelete && (
+          <div className="card border-red-100 space-y-3 mt-6">
+            <h2 className="font-semibold text-navy">Danger zone</h2>
+            <p className="text-sm text-gray-500">
+              Fighters linked to bouts or fixtures cannot be deleted.
+            </p>
+            <DeleteFighterButton
+              fighterId={fighter.id}
+              fighterName={`${fighter.first_name} ${fighter.last_name}`}
+            />
+          </div>
+        )}
       </div>
     </LoadingOverlay>
   );

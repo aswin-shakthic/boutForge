@@ -47,6 +47,38 @@ export interface AgeCategoryTemplate {
 
 export const AGE_CATEGORY_TEMPLATES: AgeCategoryTemplate[] = [
   {
+    name: "Cub 1",
+    code: "cub_1",
+    birthYearFromOffset: -6,
+    birthYearToOffset: -5,
+    min_age: 5,
+    max_age: 6,
+  },
+  {
+    name: "Cub 2",
+    code: "cub_2",
+    birthYearFromOffset: -8,
+    birthYearToOffset: -7,
+    min_age: 7,
+    max_age: 8,
+  },
+  {
+    name: "Cub 3",
+    code: "cub_3",
+    birthYearFromOffset: -10,
+    birthYearToOffset: -9,
+    min_age: 9,
+    max_age: 10,
+  },
+  {
+    name: "Cub 4",
+    code: "cub_4",
+    birthYearFromOffset: -12,
+    birthYearToOffset: -11,
+    min_age: 11,
+    max_age: 12,
+  },
+  {
     name: "Sub-Junior",
     code: "sub_junior",
     birthYearFromOffset: -14,
@@ -149,6 +181,17 @@ function seedGender(
   }));
 }
 
+function buildTwoKgWeightRanges(fromKg: number, throughKg: number): WeightRange[] {
+  const ranges: WeightRange[] = [];
+  for (let min = fromKg; min < throughKg; min += 2) {
+    ranges.push([`${min}-${min + 2}`, min, min + 2]);
+  }
+  ranges.push([`+${throughKg}`, throughKg, null]);
+  return ranges;
+}
+
+const CUB_WEIGHT_RANGES = buildTwoKgWeightRanges(16, 60);
+
 const SUB_JUNIOR_RANGES: WeightRange[] = [
   ["30-33", 30, 33],
   ["33-35", 33, 35],
@@ -210,6 +253,10 @@ const OPEN_FEMALE_RANGES: WeightRange[] = [
 ];
 
 export const BFI_WEIGHT_CLASSES: WeightClassSeed[] = [
+  ...seedBothGenders("cub_1", CUB_WEIGHT_RANGES),
+  ...seedBothGenders("cub_2", CUB_WEIGHT_RANGES),
+  ...seedBothGenders("cub_3", CUB_WEIGHT_RANGES),
+  ...seedBothGenders("cub_4", CUB_WEIGHT_RANGES),
   ...seedBothGenders("sub_junior", SUB_JUNIOR_RANGES),
   ...seedBothGenders("junior", JUNIOR_RANGES),
   ...seedGender("youth", "male", OPEN_MALE_RANGES),
