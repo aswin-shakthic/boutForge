@@ -660,7 +660,9 @@ export async function getBrackets(
 ): Promise<Bracket[]> {
   const { data } = await supabase
     .from("brackets")
-    .select("*")
+    .select(
+      "*, age_category:age_categories(name), weight_class:weight_classes(name, gender)"
+    )
     .eq("club_id", clubId)
     .order("created_at", { ascending: false });
   return (data ?? []) as Bracket[];

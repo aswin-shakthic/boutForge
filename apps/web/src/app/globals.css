@@ -23,45 +23,125 @@ body {
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
   }
 
-  .bracket-shell {
-    @apply rounded-2xl overflow-hidden border border-sky-900/40;
-    background: linear-gradient(165deg, #0f1f3d 0%, #1b2a4a 45%, #122038 100%);
+  /* Tournament bracket — screen + print */
+  .bracket-print-sheet {
+    @apply bg-white rounded-xl border border-gray-200 shadow-sm;
   }
 
-  .bracket-node {
-    @apply relative min-w-[11rem] rounded-md border border-sky-400/30 px-3 py-2 text-sm transition-all;
-    background: linear-gradient(180deg, rgba(56, 189, 248, 0.22) 0%, rgba(14, 165, 233, 0.12) 100%);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  .bracket-print-title {
+    @apply text-center text-2xl md:text-3xl font-bold text-gray-900 tracking-tight;
   }
 
-  .bracket-node-winner {
-    @apply border-emerald-400/50;
-    background: linear-gradient(180deg, rgba(52, 211, 153, 0.28) 0%, rgba(16, 185, 129, 0.14) 100%);
+  .bracket-print-meta {
+    @apply text-center text-sm text-gray-500 mt-2 capitalize;
   }
 
-  .bracket-node-loser {
-    @apply opacity-60;
+  .bracket-tree {
+    @apply flex items-stretch gap-0 min-w-max px-2 pb-4;
   }
 
-  .bracket-node-select {
-    @apply w-full bg-sky-950/40 border border-sky-400/30 rounded px-2 py-1.5 text-sky-50 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400/50;
+  .bracket-round-col {
+    @apply relative flex flex-col min-w-[11.5rem];
   }
 
-  .bracket-match {
-    @apply relative flex flex-col gap-1;
+  .bracket-round-col:not(:last-child) {
+    @apply pr-10;
   }
 
-  .bracket-match::after {
+  .bracket-round-col:not(:last-child)::after {
     content: "";
-    @apply absolute top-1/2 -right-6 w-6 h-px bg-sky-400/40;
+    @apply absolute top-0 bottom-0 right-5 w-px bg-gray-300;
   }
 
-  .bracket-column-last .bracket-match::after {
-    display: none;
+  .bracket-fixture {
+    @apply absolute left-0 right-10;
   }
 
-  .bracket-connector-fork::before {
-    content: "";
-    @apply absolute -right-6 top-[12%] bottom-[12%] w-px bg-sky-400/40;
+  .bracket-fixture-label {
+    @apply text-[11px] text-gray-400 mb-1 whitespace-nowrap;
+  }
+
+  .bracket-fixture-box {
+    @apply border border-gray-300 rounded-sm bg-white overflow-hidden;
+  }
+
+  .bracket-fixture-row {
+    @apply flex min-h-[26px] border-b border-gray-200 last:border-b-0;
+  }
+
+  .bracket-fixture-name {
+    @apply flex-1 px-2 py-1 text-[13px] text-gray-900 truncate flex items-center;
+  }
+
+  .bracket-fixture-name-winner {
+    @apply font-semibold bg-gray-50;
+  }
+
+  .bracket-fixture-name-loser {
+    @apply text-gray-400;
+  }
+
+  .bracket-fixture-score {
+    @apply w-9 shrink-0 border-l border-gray-200 bg-white flex items-center justify-center text-[11px] text-gray-500;
+  }
+
+  .bracket-fixture-connector {
+    @apply absolute top-1/2 -right-5 w-5 h-px bg-gray-300;
+  }
+
+  .bracket-fixture-select {
+    @apply w-full bg-transparent border-0 px-2 py-1 text-[13px] text-gray-900 focus:outline-none focus:ring-1 focus:ring-boxing rounded-sm;
+  }
+
+  .bracket-actions {
+    @apply flex flex-wrap items-center justify-between gap-3 mb-4;
+  }
+}
+
+@media print {
+  @page {
+    size: landscape;
+    margin: 12mm;
+  }
+
+  body {
+    background: white !important;
+  }
+
+  .no-print,
+  nav,
+  aside,
+  header,
+  .sidebar {
+    display: none !important;
+  }
+
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: none !important;
+  }
+
+  .bracket-print-sheet {
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+  }
+
+  .bracket-tree {
+    break-inside: avoid;
+  }
+
+  .bracket-fixture-box {
+    break-inside: avoid;
+  }
+
+  .bracket-fixture-select {
+    display: none !important;
+  }
+
+  .bracket-fixture-name-print {
+    display: block !important;
   }
 }

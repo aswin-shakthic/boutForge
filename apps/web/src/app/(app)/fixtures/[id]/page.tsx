@@ -1,8 +1,9 @@
 import { getBracketWithBouts, getFighters } from "@boutforge/api";
 import { canEditPairings, canRecordResults } from "@boutforge/shared";
-import { BracketView } from "@/components/BracketView";
+import { FixtureBracketPage } from "@/components/FixtureBracketPage";
 import { getAppContext } from "@/lib/app-context";
 import Link from "next/link";
+import { Suspense } from "react";
 
 export default async function FixtureDetailPage({
   params,
@@ -32,18 +33,20 @@ export default async function FixtureDetailPage({
 
   return (
     <div>
-      <Link href="/fixtures" className="text-boxing text-sm hover:underline">
-        ← Back to fixtures
-      </Link>
-      <div className="mt-4">
-        <BracketView
+      <div className="no-print flex items-center justify-between gap-4 mb-4">
+        <Link href="/fixtures" className="text-boxing text-sm hover:underline">
+          ← Back to fixtures
+        </Link>
+      </div>
+      <Suspense fallback={null}>
+        <FixtureBracketPage
           bracket={bracket}
           bouts={bouts}
           fighters={fighters}
           canRecord={canRecord}
           canEdit={canEdit}
         />
-      </div>
+      </Suspense>
     </div>
   );
 }

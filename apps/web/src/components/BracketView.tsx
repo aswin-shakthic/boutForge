@@ -3,6 +3,9 @@
 import {
   fighterFullName,
   fighterRecord,
+  getBracketMatchMarginTop,
+  getMatchGameLabel,
+  organizeBoutsByRound,
   type Bout,
   type Bracket,
   type Fighter,
@@ -13,60 +16,11 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { ResultEntryModal } from "./ResultEntryModal";
 
-interface BracketLayout {
-  leftR1: Bout[];
-  leftSemi: Bout | null;
-  rightSemi: Bout | null;
-  rightR1: Bout[];
-  finalBout: Bout | null;
-}
-
-function organizeBracket(bouts: Bout[]): BracketLayout {
-  if (bouts.length === 0) {
-    return { leftR1: [], leftSemi: null, rightSemi: null, rightR1: [], finalBout: null };
-  }
-
-  const maxRound = Math.max(...bouts.map((b) => b.round_number));
-  const finalBout = bouts.find((b) => b.round_number === maxRound) ?? null;
-  const semis = bouts
-    .filter((b) => b.round_number === maxRound - 1)
-    .sort((a, b) => a.bout_order - b.bout_order);
-
-  if (semis.length >= 2) {
-    const leftSemi = semis[0];
-    const rightSemi = semis[semis.length - 1];
-    const leftIds = new Set(
-      [leftSemi.source_bout_a_id, leftSemi.source_bout_b_id].filter(Boolean) as string[]
-    );
-    const rightIds = new Set(
-      [rightSemi.source_bout_a_id, rightSemi.source_bout_b_id].filter(Boolean) as string[]
-    );
-
-    return {
-      leftR1: bouts.filter((b) => leftIds.has(b.id)).sort((a, b) => a.bout_order - b.bout_order),
-      leftSemi,
-      rightSemi,
-      rightR1: bouts.filter((b) => rightIds.has(b.id)).sort((a, b) => a.bout_order - b.bout_order),
-      finalBout,
-    };
-  }
-
-  const round1 = bouts.filter((b) => b.round_number === 1).sort((a, b) => a.bout_order - b.bout_order);
-  const mid = Math.ceil(round1.length / 2);
-  return {
-    leftR1: round1.slice(0, mid),
-    leftSemi: semis[0] ?? null,
-    rightSemi: semis[1] ?? null,
-    rightR1: round1.slice(mid),
-    finalBout,
-  };
-}
-
 function sourceLabel(bout: Bout, bouts: Bout[], slot: "a" | "b"): string {
   const sourceId = slot === "a" ? bout.source_bout_a_id : bout.source_bout_b_id;
   if (!sourceId) return "TBD";
   const source = bouts.find((b) => b.id === sourceId);
-  return source ? `Winner · Bout ${source.bout_order}` : "TBD";
+  return source ? `Winner · Game ${source.bout_order}` : "TBD";
 }
 
 function isAssignmentSlot(bout: Bout, slot: "a" | "b"): boolean {
@@ -140,7 +94,8 @@ function setSlot(bout: Bout, slot: "a" | "b", fighterId: string | null, fighter?
       fighter_a_id: fighterId,
       fighter_a: fighter,
       slot_a_type: fighterId ? "fighter" : "tbd",
-      status: fighterId && (bout.fighter_b_id || bout.slot_b_type === "bye") ? "scheduled" : bout.status,
+      status:
+        fighterId && (bout.fighter_b_id || bout.slot_b_type === "bye") ? "scheduled" : bout.status,
     };
   }
   const slotType = bout.slot_b_type === "bye" ? "bye" : fighterId ? "fighter" : "tbd";
@@ -182,13 +137,32 @@ function applyFighterAssignment(
   });
 }
 
-function FighterSlot({
+function slotDisplayName(bout: Bout, slot: "a" | "b", bouts: Bout[]): string {
+  const slotType = slot === "a" ? bout.slot_a_type : bout.slot_b_type;
+  const fighter = slot === "a" ? bout.fighter_a : bout.fighter_b;
+
+  if (slotType === "bye") return "BYE";
+  if (slotType === "winner_of") return sourceLabel(bout, bouts, slot);
+  if (fighter) return fighterFullName(fighter);
+  return "TBD";
+}
+
+function slotScoreMark(bout: Bout, slot: "a" | "b"): string {
+  if (bout.status !== "completed" || !bout.result?.winner_id) return "";
+  const fighterId = slot === "a" ? bout.fighter_a_id : bout.fighter_b_id;
+  if (!fighterId) return "";
+  return bout.result.winner_id === fighterId ? "W" : "L";
+}
+
+function BracketFixtureRow({
   bout,
   slot,
   fighters,
   bouts,
   canEdit,
   onAssign,
+  onRecord,
+  canRecord,
 }: {
   bout: Bout;
   slot: "a" | "b";
@@ -196,11 +170,10 @@ function FighterSlot({
   bouts: Bout[];
   canEdit: boolean;
   onAssign: (boutId: string, slot: "a" | "b", fighterId: string | null) => Promise<void>;
+  onRecord?: () => void;
+  canRecord?: boolean;
 }) {
   const [saving, setSaving] = useState(false);
-
-  const slotType = slot === "a" ? bout.slot_a_type : bout.slot_b_type;
-  const fighter = slot === "a" ? bout.fighter_a : bout.fighter_b;
   const fighterId = slot === "a" ? bout.fighter_a_id : bout.fighter_b_id;
   const isComplete = bout.status === "completed";
   const winnerId = bout.result?.winner_id;
@@ -222,165 +195,98 @@ function FighterSlot({
     }
   }
 
-  const nodeClass = [
-    "bracket-node text-sky-50",
-    isWinner ? "bracket-node-winner" : "",
-    isLoser ? "bracket-node-loser" : "",
+  const nameClass = [
+    "bracket-fixture-name",
+    isWinner ? "bracket-fixture-name-winner" : "",
+    isLoser ? "bracket-fixture-name-loser" : "",
   ]
     .filter(Boolean)
     .join(" ");
 
-  if (slotType === "winner_of") {
-    return (
-      <div className={`${nodeClass} text-sky-200/80 italic`}>
-        {sourceLabel(bout, bouts, slot)}
-      </div>
-    );
-  }
-
-  if (editable) {
-    return (
-      <div className={nodeClass}>
-        {slotType === "bye" && (
-          <span className="text-[10px] uppercase tracking-wide text-sky-300/70 block mb-1">
-            Bye
-          </span>
-        )}
-        <select
-          className="bracket-node-select"
-          value={fighterId ?? ""}
-          disabled={saving}
-          onChange={(e) => handleChange(e.target.value)}
-        >
-          <option value="">Select fighter…</option>
-          {options.map((f) => (
-            <option key={f.id} value={f.id}>
-              {fighterFullName(f)} ({fighterRecord(f)})
-            </option>
-          ))}
-        </select>
-        {options.length <= 1 && !fighterId && (
-          <p className="text-[10px] text-sky-300/60 mt-1">No fighters left</p>
-        )}
-      </div>
-    );
-  }
-
   return (
-    <div className={nodeClass}>
-      {slotType === "bye" && (
-        <span className="text-[10px] uppercase tracking-wide text-sky-300/70">Bye</span>
-      )}
-      <p className="font-semibold truncate">
-        {fighter ? fighterFullName(fighter) : "TBD"}
-      </p>
-      {fighter && (
-        <p className="text-[11px] text-sky-200/70 mt-0.5">{fighterRecord(fighter)}</p>
-      )}
-      {isComplete && bout.result && isWinner && (
-        <p className="text-[10px] text-emerald-300 mt-1">
-          {bout.result.method} · R{bout.result.round_ended}
-        </p>
-      )}
+    <div className="bracket-fixture-row">
+      <div className={nameClass}>
+        {editable ? (
+          <select
+            className="bracket-fixture-select"
+            value={fighterId ?? ""}
+            disabled={saving}
+            onChange={(e) => handleChange(e.target.value)}
+          >
+            <option value="">Select fighter…</option>
+            {options.map((f) => (
+              <option key={f.id} value={f.id}>
+                {fighterFullName(f)} ({fighterRecord(f)})
+              </option>
+            ))}
+          </select>
+        ) : (
+          <span className="bracket-fixture-name-print">{slotDisplayName(bout, slot, bouts)}</span>
+        )}
+        {canRecord && bout.status === "scheduled" && slot === "b" && onRecord && (
+          <button
+            type="button"
+            onClick={onRecord}
+            className="no-print ml-auto text-[10px] text-boxing hover:underline shrink-0"
+          >
+            Result
+          </button>
+        )}
+      </div>
+      <div className="bracket-fixture-score">{slotScoreMark(bout, slot)}</div>
     </div>
   );
 }
 
-function MatchPair({
+function BracketFixture({
   bout,
+  roundLabel,
+  gameIndex,
+  isLastRound,
   fighters,
   bouts,
   canEdit,
   canRecord,
   onAssign,
   onRecord,
+  marginTop,
 }: {
   bout: Bout;
+  roundLabel: string;
+  gameIndex: number;
+  isLastRound: boolean;
   fighters: Fighter[];
   bouts: Bout[];
   canEdit: boolean;
   canRecord: boolean;
   onAssign: (boutId: string, slot: "a" | "b", fighterId: string | null) => Promise<void>;
   onRecord: () => void;
+  marginTop: number;
 }) {
-  const isComplete = bout.status === "completed";
-  const canEnterResult = canRecord && bout.status === "scheduled";
-
   return (
-    <div className="bracket-match">
-      <FighterSlot
-        bout={bout}
-        slot="a"
-        fighters={fighters}
-        bouts={bouts}
-        canEdit={canEdit}
-        onAssign={onAssign}
-      />
-      <FighterSlot
-        bout={bout}
-        slot="b"
-        fighters={fighters}
-        bouts={bouts}
-        canEdit={canEdit}
-        onAssign={onAssign}
-      />
-      {canEnterResult && (
-        <button
-          type="button"
-          onClick={onRecord}
-          className="mt-1 text-[11px] font-medium text-sky-300 hover:text-white transition-colors"
-        >
-          Enter result →
-        </button>
-      )}
-      {isComplete && (
-        <span className="mt-1 inline-flex text-[10px] uppercase tracking-wide text-emerald-300">
-          Complete
-        </span>
-      )}
-    </div>
-  );
-}
-
-function BracketColumn({
-  boutsInColumn,
-  fighters,
-  bouts,
-  canEdit,
-  canRecord,
-  onAssign,
-  onRecord,
-  isLast,
-  className = "",
-}: {
-  boutsInColumn: Bout[];
-  fighters: Fighter[];
-  bouts: Bout[];
-  canEdit: boolean;
-  canRecord: boolean;
-  onAssign: (boutId: string, slot: "a" | "b", fighterId: string | null) => Promise<void>;
-  onRecord: (bout: Bout) => void;
-  isLast?: boolean;
-  className?: string;
-}) {
-  if (boutsInColumn.length === 0) return null;
-
-  return (
-    <div
-      className={`flex flex-col justify-around gap-8 py-6 pr-8 ${isLast ? "bracket-column-last" : ""} ${className}`}
-    >
-      {boutsInColumn.map((bout) => (
-        <MatchPair
-          key={bout.id}
+    <div className="bracket-fixture" style={{ top: marginTop }}>
+      <p className="bracket-fixture-label">{getMatchGameLabel(roundLabel, gameIndex)}</p>
+      <div className="bracket-fixture-box">
+        <BracketFixtureRow
           bout={bout}
+          slot="a"
           fighters={fighters}
           bouts={bouts}
           canEdit={canEdit}
-          canRecord={canRecord}
           onAssign={onAssign}
-          onRecord={() => onRecord(bout)}
         />
-      ))}
+        <BracketFixtureRow
+          bout={bout}
+          slot="b"
+          fighters={fighters}
+          bouts={bouts}
+          canEdit={canEdit}
+          onAssign={onAssign}
+          onRecord={onRecord}
+          canRecord={canRecord}
+        />
+      </div>
+      {!isLastRound && <span className="bracket-fixture-connector" aria-hidden />}
     </div>
   );
 }
@@ -409,7 +315,7 @@ export function BracketView({
     setBouts(initialBouts);
   }, [initialBouts]);
 
-  const layout = useMemo(() => organizeBracket(bouts), [bouts]);
+  const { rounds, treeHeight } = useMemo(() => organizeBoutsByRound(bouts), [bouts]);
 
   const handleAssign = useCallback(
     async (boutId: string, slot: "a" | "b", fighterId: string | null) => {
@@ -433,112 +339,89 @@ export function BracketView({
     return fighters.filter((f) => !assigned.has(f.id)).length;
   }, [bouts, fighters]);
 
-  const champion =
-    layout.finalBout?.status === "completed" && layout.finalBout.result?.winner_id
-      ? layout.finalBout.fighter_a?.id === layout.finalBout.result.winner_id
-        ? layout.finalBout.fighter_a
-        : layout.finalBout.fighter_b
-      : null;
+  const participantCount = useMemo(() => {
+    const ids = new Set<string>();
+    for (const bout of bouts) {
+      if (bout.fighter_a_id) ids.add(bout.fighter_a_id);
+      if (bout.fighter_b_id) ids.add(bout.fighter_b_id);
+    }
+    return ids.size;
+  }, [bouts]);
 
   return (
     <div className="space-y-4">
-      <div className="bracket-shell p-6 md:p-8">
-        <div className="text-center mb-8">
-          <p className="text-sky-300/60 text-xs uppercase tracking-[0.35em]">Playoffs</p>
-          <h1 className="text-2xl md:text-3xl font-black uppercase tracking-wider text-sky-100 mt-2">
-            {bracket.name}
-          </h1>
-          <p className="text-sky-300/50 text-sm mt-2 capitalize">
-            {bracket.format.replace("_", " ")} · {bracket.status.replace("_", " ")}
-          </p>
+      <div className="bracket-actions no-print">
+        <div className="text-sm text-gray-500">
           {canEdit && (
-            <p className="text-sky-300/70 text-xs mt-3">
+            <span>
               {remainingCount} unassigned · {fighters.length} fighters in pool
-            </p>
+            </span>
           )}
         </div>
+        <button type="button" onClick={() => window.print()} className="btn-secondary">
+          Print bracket
+        </button>
+      </div>
 
-        <div className="overflow-x-auto pb-4">
-          <div className="min-w-[920px] flex items-stretch justify-center gap-2">
-            <BracketColumn
-              boutsInColumn={layout.leftR1}
-              fighters={fighters}
-              bouts={bouts}
-              canEdit={canEdit}
-              canRecord={canRecord}
-              onAssign={handleAssign}
-              onRecord={setSelectedBout}
-            />
-
-            {layout.leftSemi && (
-              <BracketColumn
-                boutsInColumn={[layout.leftSemi]}
-                fighters={fighters}
-                bouts={bouts}
-                canEdit={canEdit}
-                canRecord={canRecord}
-                onAssign={handleAssign}
-                onRecord={setSelectedBout}
-                className="justify-center"
-              />
-            )}
-
-            <div className="flex flex-col items-center justify-center px-4 min-w-[14rem]">
-              <p className="text-sky-300/70 text-xs uppercase tracking-[0.25em] mb-3">
-                Final Stage
-              </p>
-              {champion && (
-                <div className="bracket-node bracket-node-winner w-full text-center mb-4 py-3">
-                  <p className="text-[10px] uppercase tracking-wide text-emerald-300">Champion</p>
-                  <p className="font-bold text-sky-50">{fighterFullName(champion)}</p>
-                </div>
-              )}
-              {layout.finalBout ? (
-                <MatchPair
-                  bout={layout.finalBout}
-                  fighters={fighters}
-                  bouts={bouts}
-                  canEdit={canEdit}
-                  canRecord={canRecord}
-                  onAssign={handleAssign}
-                  onRecord={() => setSelectedBout(layout.finalBout!)}
-                />
-              ) : (
-                <div className="bracket-node text-sky-200/60 italic">Final TBD</div>
-              )}
-            </div>
-
-            {layout.rightSemi && (
-              <BracketColumn
-                boutsInColumn={[layout.rightSemi]}
-                fighters={fighters}
-                bouts={bouts}
-                canEdit={canEdit}
-                canRecord={canRecord}
-                onAssign={handleAssign}
-                onRecord={setSelectedBout}
-                className="justify-center pl-8 pr-0"
-              />
-            )}
-
-            <BracketColumn
-              boutsInColumn={layout.rightR1}
-              fighters={fighters}
-              bouts={bouts}
-              canEdit={canEdit}
-              canRecord={canRecord}
-              onAssign={handleAssign}
-              onRecord={setSelectedBout}
-              isLast
-              className="pl-8 pr-0"
-            />
-          </div>
+      <div id="bracket-print-area" className="bracket-print-sheet p-6 md:p-8">
+        <div className="text-center mb-8">
+          <h1 className="bracket-print-title">
+            {participantCount > 0
+              ? `${participantCount} Fighter Single Elimination Tournament`
+              : bracket.name}
+          </h1>
+          <p className="bracket-print-meta mt-3 font-medium text-gray-700 normal-case">
+            {bracket.name}
+          </p>
+          <p className="bracket-print-meta capitalize">
+            {bracket.format.replace(/_/g, " ")} · {bracket.status.replace(/_/g, " ")}
+            {bracket.scheduled_date ? ` · ${bracket.scheduled_date}` : ""}
+          </p>
         </div>
+
+        {rounds.length === 0 ? (
+          <p className="text-center text-gray-500">No matches in this bracket yet.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <div className="bracket-tree" style={{ minHeight: treeHeight }}>
+              {rounds.map((round, roundIndex) => (
+                <div
+                  key={round.roundNumber}
+                  className="bracket-round-col"
+                  style={{ minHeight: treeHeight }}
+                >
+                  <p className="text-center text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">
+                    {round.label}
+                  </p>
+                  <div className="relative flex-1" style={{ minHeight: treeHeight - 32 }}>
+                  {round.bouts.map((bout, index) => (
+                    <BracketFixture
+                      key={bout.id}
+                      bout={bout}
+                      roundLabel={round.label}
+                      gameIndex={index}
+                      isLastRound={roundIndex === rounds.length - 1}
+                      fighters={fighters}
+                      bouts={bouts}
+                      canEdit={canEdit}
+                      canRecord={canRecord}
+                      onAssign={handleAssign}
+                      onRecord={() => setSelectedBout(bout)}
+                      marginTop={getBracketMatchMarginTop(round.roundNumber, index)}
+                    />
+                  ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {canEdit && (
-        <p className="text-sm text-gray-500">
-          Dropdowns show only unassigned fighters. Moving a fighter clears them from the previous node automatically.
+        <p className="text-sm text-gray-500 no-print">
+          Dropdowns show only unassigned fighters. Moving a fighter clears them from the previous
+          match automatically.
         </p>
       )}
 
