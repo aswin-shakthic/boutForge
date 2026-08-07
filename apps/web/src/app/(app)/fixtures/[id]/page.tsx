@@ -1,8 +1,10 @@
+import { ArrowLeft, Pencil } from "lucide-react";
 import { getBracketWithBouts, getFighters } from "@boutforge/api";
 import { canDeleteBracket, canEditPairings, canRecordResults } from "@boutforge/shared";
 import { FixtureBracketPage } from "@/components/FixtureBracketPage";
 import { DeleteFixtureButton } from "@/components/DeleteFixtureButton";
 import { getAppContext } from "@/lib/app-context";
+import { IconAction } from "@/components/ui/IconAction";
 import Link from "next/link";
 import { Suspense } from "react";
 
@@ -38,18 +40,29 @@ export default async function FixtureDetailPage({
   return (
     <div>
       <div className="no-print flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
-        <Link href="/fixtures" className="text-boxing text-sm hover:underline">
-          ← Back to fixtures
+        <Link
+          href="/fixtures"
+          className="inline-flex items-center gap-1.5 text-boxing text-sm hover:underline"
+        >
+          <ArrowLeft className="h-4 w-4" aria-hidden />
+          Back to fixtures
         </Link>
         {(canEdit || canDelete) && (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-1">
             {canEdit && (
-              <Link href={`/fixtures/${id}/edit`} className="btn-secondary text-sm">
-                Edit fixture
-              </Link>
+              <IconAction
+                href={`/fixtures/${id}/edit`}
+                label="Edit fixture"
+                icon={Pencil}
+                mode="responsive"
+              />
             )}
             {canDelete && (
-              <DeleteFixtureButton bracketId={bracket.id} bracketName={bracket.name} />
+              <DeleteFixtureButton
+                bracketId={bracket.id}
+                bracketName={bracket.name}
+                compact
+              />
             )}
           </div>
         )}

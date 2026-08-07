@@ -82,6 +82,151 @@ export function toggleSectionFighterSelection(
   return next;
 }
 
+export function setSectionFighterSelection(
+  sectionKey: string,
+  fighterIds: string[],
+  selectedBySection: Record<string, string[]>
+): Record<string, string[]> {
+  return {
+    ...selectedBySection,
+    [sectionKey]: fighterIds,
+  };
+}
+
+export function addFightersToSectionSelection(
+  sectionKey: string,
+  fighterIds: string[],
+  selectedBySection: Record<string, string[]>
+): Record<string, string[]> {
+  const toAdd = new Set(fighterIds);
+  const next: Record<string, string[]> = {};
+
+  for (const [key, ids] of Object.entries(selectedBySection)) {
+    if (key === sectionKey) continue;
+    next[key] = ids.filter((id) => !toAdd.has(id));
+  }
+
+  const current = new Set(next[sectionKey] ?? selectedBySection[sectionKey] ?? []);
+  for (const id of fighterIds) current.add(id);
+  next[sectionKey] = Array.from(current);
+
+  return next;
+}
+
+export function clearSectionFighterSelection(
+  sectionKey: string,
+  selectedBySection: Record<string, string[]>
+): Record<string, string[]> {
+  return setSectionFighterSelection(sectionKey, [], selectedBySection);
+}
+
+export type FighterAssignmentFilters = {
+  clubId: string;
+  categoryDraftId: string;
+  gender: Gender | "all";
+  search: string;
+};
+
+export type FighterAssignmentCategory = {
+  id: string;
+  name: string;
+  birth_year_from: number;
+  birth_year_to: number;
+};
+
+export function getFighterEventCategoryName(
+  dob: string,
+  categories: Array<Pick<FighterAssignmentCategory, "name" | "birth_year_from" | "birth_year_to">>
+): string | null {
+  for (const category of categories) {
+    if (
+      fighterMatchesBirthYearCategory(
+        dob,
+        category.birth_year_from,
+        category.birth_year_to
+      )
+    ) {
+      return category.name;
+    }
+  }
+  return null;
+}
+
+export function filterFightersForAssignment<
+  T extends Pick<Fighter, "id" | "dob" | "gender" | "first_name" | "last_name"> & {
+    club_id?: string;
+    affiliation_name?: string | null;
+    club?: { name?: string | null } | null;
+  },
+>(
+  fighters: T[],
+  filters: FighterAssignmentFilters,
+  categories: FighterAssignmentCategory[]
+): T[] {
+  const search = filters.search.trim().toLowerCase();
+  const categoryFilter = categories.find((c) => c.id === filters.categoryDraftId);
+
+  return fighters.filter((fighter) => {
+    if (filters.clubId !== "all" && fighter.club_id !== filters.clubId) {
+      return false;
+    }
+    if (filters.gender !== "all" && fighter.gender !== filters.gender) {
+      return false;
+    }
+    if (categoryFilter) {
+      if (
+        !fighterMatchesBirthYearCategory(
+          fighter.dob,
+          categoryFilter.birth_year_from,
+          categoryFilter.birth_year_to
+        )
+      ) {
+        return false;
+      }
+    }
+    if (search) {
+      const fullName = `${fighter.first_name} ${fighter.last_name}`.toLowerCase();
+      const clubName = (fighter.club?.name ?? fighter.affiliation_name ?? "").toLowerCase();
+      if (!fullName.includes(search) && !clubName.includes(search)) {
+        return false;
+      }
+    }
+    return true;
+  });
+}
+
+export function groupFightersByClub<
+  T extends Pick<Fighter, "club_id" | "last_name" | "first_name"> & {
+    club?: { name?: string | null } | null;
+    affiliation_name?: string | null;
+  },
+>(fighters: T[]): Array<{ clubId: string; clubName: string; fighters: T[] }> {
+  const groups = new Map<string, { clubName: string; fighters: T[] }>();
+
+  for (const fighter of fighters) {
+    const clubId = fighter.club_id;
+    const clubName =
+      fighter.club?.name?.trim() || fighter.affiliation_name?.trim() || "Unknown club";
+    const existing = groups.get(clubId);
+    if (existing) {
+      existing.fighters.push(fighter);
+    } else {
+      groups.set(clubId, { clubName, fighters: [fighter] });
+    }
+  }
+
+  return Array.from(groups.entries())
+    .map(([clubId, group]) => ({
+      clubId,
+      clubName: group.clubName,
+      fighters: group.fighters.sort(
+        (a, b) =>
+          a.last_name.localeCompare(b.last_name) || a.first_name.localeCompare(b.first_name)
+      ),
+    }))
+    .sort((a, b) => a.clubName.localeCompare(b.clubName));
+}
+
 export function getReadyFixtureSections<T extends { key: string }>(
   sections: T[],
   selectedBySection: Record<string, string[]>,

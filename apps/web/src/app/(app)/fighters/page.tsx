@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { Eye, Pencil, Upload, UserPlus, Users } from "lucide-react";
 import { getFighters } from "@boutforge/api";
 import {
   fighterFullName,
@@ -6,30 +6,41 @@ import {
   getAgeFromDob,
   getFighterClubDisplayName,
   canManageFighters,
+  canDeleteFighters,
 } from "@boutforge/shared";
 import { getAppContext } from "@/lib/app-context";
+import { IconAction } from "@/components/ui/IconAction";
+import { DeleteFighterButton } from "@/components/DeleteFighterButton";
 
 export default async function FightersPage() {
-  const { supabase, clubIds, membership } = await getAppContext();
+  const { supabase, clubIds, membership, profile } = await getAppContext();
   if (clubIds.length === 0) return <p>No club</p>;
 
   const fighters = await getFighters(supabase, clubIds);
   const canEdit = membership ? canManageFighters(membership.role) : false;
+  const canDelete = membership
+    ? canDeleteFighters(membership.role, profile?.is_platform_admin)
+    : false;
 
   return (
     <div className="space-y-6">
       <div className="page-header">
         <h1 className="page-title">Fighters</h1>
         <div className="page-actions">
-          <Link href="/fighters/participations" className="btn-secondary text-sm">
-            Participants
-          </Link>
-          <Link href="/import" className="btn-secondary text-sm">
-            Import CSV
-          </Link>
-          <Link href="/fighters/new" className="btn-primary text-sm">
-            + Add Fighter
-          </Link>
+          <IconAction
+            href="/fighters/participations"
+            label="Participants"
+            icon={Users}
+            mode="responsive"
+          />
+          <IconAction href="/import" label="Import CSV" icon={Upload} mode="responsive" />
+          <IconAction
+            href="/fighters/new"
+            label="Add fighter"
+            icon={UserPlus}
+            variant="primary"
+            mode="responsive"
+          />
         </div>
       </div>
 
@@ -62,20 +73,27 @@ export default async function FightersPage() {
                     {fighter.weight_class?.name ?? "—"}
                   </span>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <Link
+                <div className="flex items-center gap-1">
+                  <IconAction
                     href={`/fighters/${fighter.id}`}
-                    className="btn-secondary flex-1 text-sm text-center"
-                  >
-                    View profile
-                  </Link>
+                    label="View profile"
+                    icon={Eye}
+                    variant="ghost"
+                  />
                   {canEdit && (
-                    <Link
+                    <IconAction
                       href={`/fighters/${fighter.id}/edit`}
-                      className="btn-secondary flex-1 text-sm text-center"
-                    >
-                      Edit
-                    </Link>
+                      label="Edit fighter"
+                      icon={Pencil}
+                      variant="ghost"
+                    />
+                  )}
+                  {canDelete && (
+                    <DeleteFighterButton
+                      fighterId={fighter.id}
+                      fighterName={fighterFullName(fighter)}
+                      compact
+                    />
                   )}
                 </div>
               </article>
@@ -102,7 +120,7 @@ export default async function FightersPage() {
                     <th className="text-left px-4 lg:px-6 py-3 text-xs font-medium text-gray-500 uppercase">
                       Record
                     </th>
-                    <th className="text-left px-4 lg:px-6 py-3 text-xs font-medium text-gray-500 uppercase">
+                    <th className="text-left px-4 lg:px-6 py-3 text-xs font-medium text-gray-500 uppercase w-32">
                       Actions
                     </th>
                   </tr>
@@ -132,20 +150,27 @@ export default async function FightersPage() {
                         {fighterRecord(fighter)}
                       </td>
                       <td className="px-4 lg:px-6 py-4">
-                        <div className="flex flex-wrap gap-3">
-                          <Link
+                        <div className="flex items-center gap-1">
+                          <IconAction
                             href={`/fighters/${fighter.id}`}
-                            className="text-boxing text-sm hover:underline"
-                          >
-                            View
-                          </Link>
+                            label="View profile"
+                            icon={Eye}
+                            variant="ghost"
+                          />
                           {canEdit && (
-                            <Link
+                            <IconAction
                               href={`/fighters/${fighter.id}/edit`}
-                              className="text-gray-600 text-sm hover:underline"
-                            >
-                              Edit
-                            </Link>
+                              label="Edit fighter"
+                              icon={Pencil}
+                              variant="ghost"
+                            />
+                          )}
+                          {canDelete && (
+                            <DeleteFighterButton
+                              fighterId={fighter.id}
+                              fighterName={fighterFullName(fighter)}
+                              compact
+                            />
                           )}
                         </div>
                       </td>

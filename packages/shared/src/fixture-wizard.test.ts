@@ -6,12 +6,18 @@ import {
   resolveCategoryBirthYears,
 } from "./constants";
 import {
+  addFightersToSectionSelection,
   categoriesAndWeightClassesForSections,
+  clearSectionFighterSelection,
   eligibleFightersForSection,
+  filterFightersForAssignment,
   getAssignedElsewhere,
+  getFighterEventCategoryName,
   getReadyFixtureSections,
+  groupFightersByClub,
   parseWeightInput,
   pruneFixtureWizardState,
+  setSectionFighterSelection,
   toggleSectionFighterSelection,
   type FixtureSectionLike,
 } from "./fixture-wizard";
@@ -308,5 +314,150 @@ describe("categoriesAndWeightClassesForSections", () => {
 
     expect(categoryIds).toEqual(new Set(["cat-a", "cat-b"]));
     expect(weightClassIds).toEqual(new Set(["wc-1", "wc-2", "wc-3"]));
+  });
+});
+
+describe("setSectionFighterSelection", () => {
+  it("replaces fighters for a section", () => {
+    expect(setSectionFighterSelection("sec-a", ["f1", "f2"], { "sec-b": ["f3"] })).toEqual({
+      "sec-b": ["f3"],
+      "sec-a": ["f1", "f2"],
+    });
+  });
+});
+
+describe("clearSectionFighterSelection", () => {
+  it("clears fighters from a section", () => {
+    expect(clearSectionFighterSelection("sec-a", { "sec-a": ["f1"], "sec-b": ["f2"] })).toEqual({
+      "sec-a": [],
+      "sec-b": ["f2"],
+    });
+  });
+});
+
+describe("addFightersToSectionSelection", () => {
+  it("adds fighters exclusively to the target section", () => {
+    const result = addFightersToSectionSelection("sec-b", ["f1", "f2"], {
+      "sec-a": ["f1", "f3"],
+      "sec-b": ["f4"],
+    });
+
+    expect(result).toEqual({
+      "sec-a": ["f3"],
+      "sec-b": ["f4", "f1", "f2"],
+    });
+  });
+});
+
+describe("getFighterEventCategoryName", () => {
+  const categories = [
+    { name: "Cub 1", birth_year_from: 2018, birth_year_to: 2019 },
+    { name: "Youth", birth_year_from: 2010, birth_year_to: 2012 },
+  ];
+
+  it("returns the matching event category name from dob", () => {
+    expect(getFighterEventCategoryName("2018-06-01", categories)).toBe("Cub 1");
+    expect(getFighterEventCategoryName("2011-01-01", categories)).toBe("Youth");
+    expect(getFighterEventCategoryName("2005-01-01", categories)).toBeNull();
+  });
+});
+
+describe("filterFightersForAssignment", () => {
+  const categories = [
+    { id: "cub", name: "Cub 1", birth_year_from: 2018, birth_year_to: 2019 },
+    { id: "youth", name: "Youth", birth_year_from: 2010, birth_year_to: 2012 },
+  ];
+
+  const fighters = [
+    {
+      id: "f1",
+      first_name: "Alex",
+      last_name: "Alpha",
+      dob: "2018-01-01",
+      gender: "male" as const,
+      club_id: "club-a",
+      club: { name: "Alpha Boxing" },
+    },
+    {
+      id: "f2",
+      first_name: "Ben",
+      last_name: "Beta",
+      dob: "2011-01-01",
+      gender: "female" as const,
+      club_id: "club-b",
+      club: { name: "Beta Gym" },
+    },
+  ];
+
+  it("filters by club, gender, category, and search", () => {
+    expect(
+      filterFightersForAssignment(fighters, {
+        clubId: "club-a",
+        categoryDraftId: "all",
+        gender: "all",
+        search: "",
+      }, categories).map((f) => f.id)
+    ).toEqual(["f1"]);
+
+    expect(
+      filterFightersForAssignment(fighters, {
+        clubId: "all",
+        categoryDraftId: "youth",
+        gender: "all",
+        search: "",
+      }, categories).map((f) => f.id)
+    ).toEqual(["f2"]);
+
+    expect(
+      filterFightersForAssignment(fighters, {
+        clubId: "all",
+        categoryDraftId: "all",
+        gender: "female",
+        search: "",
+      }, categories).map((f) => f.id)
+    ).toEqual(["f2"]);
+
+    expect(
+      filterFightersForAssignment(fighters, {
+        clubId: "all",
+        categoryDraftId: "all",
+        gender: "all",
+        search: "beta",
+      }, categories).map((f) => f.id)
+    ).toEqual(["f2"]);
+  });
+});
+
+describe("groupFightersByClub", () => {
+  it("groups and sorts fighters by club name and fighter name", () => {
+    const fighters = [
+      {
+        id: "f2",
+        first_name: "Ben",
+        last_name: "Beta",
+        club_id: "club-b",
+        club: { name: "Beta Gym" },
+      },
+      {
+        id: "f1",
+        first_name: "Alex",
+        last_name: "Alpha",
+        club_id: "club-a",
+        club: { name: "Alpha Boxing" },
+      },
+      {
+        id: "f3",
+        first_name: "Amy",
+        last_name: "Alpha",
+        club_id: "club-a",
+        club: { name: "Alpha Boxing" },
+      },
+    ];
+
+    const grouped = groupFightersByClub(fighters);
+
+    expect(grouped.map((g) => g.clubName)).toEqual(["Alpha Boxing", "Beta Gym"]);
+    expect(grouped[0].fighters.map((f) => f.id)).toEqual(["f1", "f3"]);
+    expect(grouped[1].fighters.map((f) => f.id)).toEqual(["f2"]);
   });
 });

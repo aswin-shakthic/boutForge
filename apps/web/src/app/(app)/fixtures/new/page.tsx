@@ -36,7 +36,13 @@ import {
   configToCategoryDrafts,
   configToWeightClassDrafts,
   eventConfigFromWizardState,
+  ensureCompleteEventCategoryConfig,
   seedWeightClassDrafts,
+  clearSectionFighterSelection,
+  addFightersToSectionSelection,
+  filterFightersForAssignment,
+  getFighterEventCategoryName,
+  groupFightersByClub,
 } from "@boutforge/shared";
 import type {
   ClubMember,
@@ -131,6 +137,17 @@ function NewFixtureWizard() {
   const [fighters, setFighters] = useState<Fighter[]>([]);
   const [selectedBySection, setSelectedBySection] = useState<Record<string, string[]>>({});
   const [configBySection, setConfigBySection] = useState<Record<string, SectionConfig>>({});
+  const [assignFilters, setAssignFilters] = useState<{
+    clubId: string;
+    categoryDraftId: string;
+    gender: Gender | "all";
+    search: string;
+  }>({
+    clubId: "all",
+    categoryDraftId: "all",
+    gender: "all",
+    search: "",
+  });
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -192,7 +209,11 @@ function NewFixtureWizard() {
         if (!active) return;
 
         const config = attachPlatformWeightIds(
-          buildDefaultEventCategoryConfig(competitionYear, all),
+          ensureCompleteEventCategoryConfig(
+            buildDefaultEventCategoryConfig(competitionYear, all),
+            all,
+            platformWeights
+          ),
           all,
           platformWeights
         );
@@ -246,6 +267,16 @@ function NewFixtureWizard() {
       active = false;
     };
   }, [supabase, hostClubId, searchParams, start, end]);
+
+  useEffect(() => {
+    if (eventMode !== "existing" || !selectedEventId) return;
+    const event = events.find((e) => e.id === selectedEventId) as
+      | (Event & { event_clubs?: Array<{ club_id: string }> })
+      | undefined;
+    if (!event?.event_clubs?.length) return;
+
+    setSelectedClubIds(new Set(event.event_clubs.map((entry) => entry.club_id)));
+  }, [eventMode, selectedEventId, events]);
 
   useEffect(() => {
     if (selectedClubIds.size === 0) {
@@ -438,6 +469,24 @@ function NewFixtureWizard() {
     setSelectedBySection((prev) => toggleSectionFighterSelection(fighterId, sectionKey, prev));
   }
 
+  function selectAllInSection(sectionKey: string, fighterIds: string[]) {
+    setSelectedBySection((prev) => addFightersToSectionSelection(sectionKey, fighterIds, prev));
+  }
+
+  function clearSectionSelection(sectionKey: string) {
+    setSelectedBySection((prev) => clearSectionFighterSelection(sectionKey, prev));
+  }
+
+  const clubFilterOptions = useMemo(() => {
+    return memberships
+      .filter((m) => selectedClubIds.has(m.club_id))
+      .map((m) => ({
+        id: m.club_id,
+        name: m.club?.name ?? m.club_id,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [memberships, selectedClubIds]);
+
   function goToFormatStep() {
     setConfigBySection((prev) => {
       const next = { ...prev };
@@ -498,11 +547,16 @@ function NewFixtureWizard() {
   }
 
   function goToWeightStep() {
-    setWeightClasses((prev) =>
-      prev.length === 0
-        ? seedWeightClassDrafts(categories.map((c) => ({ id: c.id, code: c.code })))
-        : prev
-    );
+    setWeightClasses((prev) => {
+      if (prev.length === 0) {
+        return seedWeightClassDrafts(categories.map((c) => ({ id: c.id, code: c.code })));
+      }
+      const categoryIdsWithWeights = new Set(prev.map((wc) => wc.categoryDraftId));
+      const missing = categories.filter((c) => !categoryIdsWithWeights.has(c.id));
+      if (missing.length === 0) return prev;
+      const extra = seedWeightClassDrafts(missing.map((c) => ({ id: c.id, code: c.code })));
+      return [...prev, ...extra];
+    });
     setStep(3);
   }
 
@@ -1038,53 +1092,164 @@ function NewFixtureWizard() {
             </div>
           </div>
 
+          <div className="border border-gray-100 rounded-lg p-4 space-y-3">
+            <p className="text-sm font-medium text-navy">Filters</p>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Club</label>
+                <select
+                  className="input-field text-sm"
+                  value={assignFilters.clubId}
+                  onChange={(e) =>
+                    setAssignFilters((prev) => ({ ...prev, clubId: e.target.value }))
+                  }
+                >
+                  <option value="all">All clubs</option>
+                  {clubFilterOptions.map((club) => (
+                    <option key={club.id} value={club.id}>
+                      {club.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Age category</label>
+                <select
+                  className="input-field text-sm"
+                  value={assignFilters.categoryDraftId}
+                  onChange={(e) =>
+                    setAssignFilters((prev) => ({ ...prev, categoryDraftId: e.target.value }))
+                  }
+                >
+                  <option value="all">All categories</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Gender</label>
+                <select
+                  className="input-field text-sm"
+                  value={assignFilters.gender}
+                  onChange={(e) =>
+                    setAssignFilters((prev) => ({
+                      ...prev,
+                      gender: e.target.value as Gender | "all",
+                    }))
+                  }
+                >
+                  <option value="all">All</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Search</label>
+                <input
+                  className="input-field text-sm"
+                  placeholder="Name or club"
+                  value={assignFilters.search}
+                  onChange={(e) =>
+                    setAssignFilters((prev) => ({ ...prev, search: e.target.value }))
+                  }
+                />
+              </div>
+            </div>
+          </div>
+
           <div className="space-y-4">
             {sections.map((section) => {
               const eligible = eligibleForSection(section);
+              const filtered = filterFightersForAssignment(
+                eligible,
+                assignFilters,
+                categories
+              );
+              const grouped = groupFightersByClub(filtered);
               const selected = selectedBySection[section.key] ?? [];
+              const filteredIds = filtered.map((f) => f.id);
+              const allFilteredSelected =
+                filteredIds.length > 0 && filteredIds.every((id) => selected.includes(id));
+
               return (
                 <div
                   key={section.key}
                   className="border border-gray-100 rounded-lg p-4 space-y-3"
                 >
-                  <div>
-                    <p className="font-medium text-sm text-navy">
-                      {section.category.name} · {section.weightClass.gender} ·{" "}
-                      {section.weightClass.name}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      Born{" "}
-                      {Math.min(section.category.birth_year_from, section.category.birth_year_to)}–
-                      {Math.max(section.category.birth_year_from, section.category.birth_year_to)}{" "}
-                      · {eligible.length} available · {selected.length} selected
-                    </p>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="font-medium text-sm text-navy">
+                        {section.category.name} · {section.weightClass.gender} ·{" "}
+                        {section.weightClass.name}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Born{" "}
+                        {Math.min(section.category.birth_year_from, section.category.birth_year_to)}
+                        –
+                        {Math.max(section.category.birth_year_from, section.category.birth_year_to)}{" "}
+                        · {filtered.length} shown · {selected.length} selected
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        className="btn-secondary text-xs"
+                        disabled={filteredIds.length === 0 || allFilteredSelected}
+                        onClick={() => selectAllInSection(section.key, filteredIds)}
+                      >
+                        Select all
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-secondary text-xs"
+                        disabled={selected.length === 0}
+                        onClick={() => clearSectionSelection(section.key)}
+                      >
+                        Clear
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="space-y-2 max-h-64 overflow-y-auto pt-2 border-t border-gray-100">
-                    {eligible.length === 0 ? (
+                  <div className="space-y-3 max-h-80 overflow-y-auto pt-2 border-t border-gray-100">
+                    {filtered.length === 0 ? (
                       <p className="text-sm text-gray-500">
-                        No available fighters for this section (already assigned elsewhere or no
-                        match).
+                        No fighters match this section and the current filters.
                       </p>
                     ) : (
-                      eligible.map((f) => (
-                        <label
-                          key={f.id}
-                          className="flex items-center gap-3 p-3 border border-gray-100 rounded-lg hover:bg-gray-50 cursor-pointer"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selected.includes(f.id)}
-                            onChange={() => toggleFighter(f.id, section.key)}
-                          />
-                          <div className="flex-1">
-                            <p className="font-medium text-sm">{fighterFullName(f)}</p>
-                            <p className="text-xs text-gray-500">
-                              {getFighterClubDisplayName(f)} · {f.weight_kg} kg ·{" "}
-                              {fighterRecord(f)}
-                            </p>
-                          </div>
-                        </label>
+                      grouped.map((group) => (
+                        <div key={group.clubId} className="space-y-2">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 px-1">
+                            {group.clubName}
+                          </p>
+                          {group.fighters.map((f) => {
+                            const eventCategory =
+                              getFighterEventCategoryName(f.dob, categories) ??
+                              f.age_category?.name ??
+                              "—";
+                            return (
+                              <label
+                                key={f.id}
+                                className="flex items-center gap-3 p-3 border border-gray-100 rounded-lg hover:bg-gray-50 cursor-pointer"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={selected.includes(f.id)}
+                                  onChange={() => toggleFighter(f.id, section.key)}
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium text-sm">{fighterFullName(f)}</p>
+                                  <p className="text-xs text-gray-500">
+                                    {eventCategory} · {f.gender} · {f.weight_kg} kg ·{" "}
+                                    {fighterRecord(f)}
+                                  </p>
+                                </div>
+                              </label>
+                            );
+                          })}
+                        </div>
                       ))
                     )}
                   </div>

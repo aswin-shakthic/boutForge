@@ -1,10 +1,17 @@
 import Link from "next/link";
+import { ArrowLeft, Pencil, Plus } from "lucide-react";
 import { getBracketsByEvent } from "@boutforge/api";
-import { canDeleteEvent, canEditEvent } from "@boutforge/shared";
+import { canDeleteEvent as checkCanDeleteEvent, canEditEvent as checkCanEditEvent } from "@boutforge/shared";
 import { getAppContext } from "@/lib/app-context";
 import { EventCategoriesEditor } from "@/components/EventCategoriesEditor";
 import { DeleteEventButton } from "@/components/DeleteEventButton";
 import { PublishEventButton } from "./PublishEventButton";
+import { IconAction } from "@/components/ui/IconAction";
+
+type EventClubRow = {
+  id: string;
+  club: { name: string };
+};
 
 export default async function EventDetailPage({
   params,
@@ -30,13 +37,17 @@ export default async function EventDetailPage({
     organizerClubId: event.organizer_club_id,
     userClubId: clubId,
   };
-  const canEditEventAccess = canEditEvent(membership?.role, accessContext);
-  const canDeleteEventAccess = canDeleteEvent(membership?.role, accessContext);
+  const canEditEventAccess = checkCanEditEvent(membership?.role, accessContext);
+  const canDeleteEventAccess = checkCanDeleteEvent(membership?.role, accessContext);
 
   return (
     <div className="space-y-6">
-      <Link href="/events" className="text-boxing text-sm hover:underline">
-        ← Back to events
+      <Link
+        href="/events"
+        className="inline-flex items-center gap-1.5 text-boxing text-sm hover:underline"
+      >
+        <ArrowLeft className="h-4 w-4" aria-hidden />
+        Back to events
       </Link>
 
       <div className="card space-y-6">
@@ -54,44 +65,47 @@ export default async function EventDetailPage({
 
         <div className="page-actions">
           {canEditEventAccess && (
-            <Link
+            <IconAction
               href={`/events/${event.id}/edit`}
-              className="btn-secondary text-sm flex-1 sm:flex-none text-center"
-            >
-              Edit event
-            </Link>
+              label="Edit event"
+              icon={Pencil}
+              mode="responsive"
+            />
           )}
-          <Link
+          <IconAction
             href={`/fixtures/new?eventId=${event.id}`}
-            className="btn-primary text-sm flex-1 sm:flex-none text-center"
-          >
-            + Add brackets
-          </Link>
+            label="Add brackets"
+            icon={Plus}
+            variant="primary"
+            mode="responsive"
+          />
           {event.status === "draft" && <PublishEventButton eventId={event.id} />}
-          {canDeleteEventAccess && (
-            <DeleteEventButton eventId={event.id} eventName={event.name} />
-          )}
+          {canDeleteEventAccess ? (
+            <DeleteEventButton
+              eventId={event.id}
+              eventName={event.name}
+              compact={true}
+            />
+          ) : null}
         </div>
 
-        {canEditEventAccess && (
+        {canEditEventAccess ? (
           <div className="border-t border-gray-100 pt-6">
             <EventCategoriesEditor eventId={event.id} />
           </div>
-        )}
+        ) : null}
 
         <div>
           <h2 className="font-semibold text-navy mb-3">Participating Clubs</h2>
           <div className="space-y-2">
-            {(event.event_clubs ?? []).map(
-              (ec: { id: string; club: { name: string } }) => (
+            {(event.event_clubs ?? []).map((ec: EventClubRow) => (
                 <div
                   key={ec.id}
                   className="border border-gray-100 rounded-lg p-3 text-sm"
                 >
                   {ec.club?.name}
                 </div>
-              )
-            )}
+              ))}
           </div>
         </div>
 

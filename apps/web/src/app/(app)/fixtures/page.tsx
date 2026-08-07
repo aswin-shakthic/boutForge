@@ -1,8 +1,9 @@
+import { Plus } from "lucide-react";
 import { getBrackets } from "@boutforge/api";
 import { canEditPairings } from "@boutforge/shared";
 import { FixturesGroupedList } from "@/components/FixturesGroupedList";
 import { getAppContext } from "@/lib/app-context";
-import Link from "next/link";
+import { IconAction } from "@/components/ui/IconAction";
 
 export default async function FixturesPage() {
   const { supabase, clubId, membership } = await getAppContext();
@@ -15,9 +16,14 @@ export default async function FixturesPage() {
     <div className="space-y-6">
       <div className="page-header">
         <h1 className="page-title">Fixtures</h1>
-        <Link href="/fixtures/new" className="btn-primary shrink-0 text-sm sm:text-base">
-          + Create Fixture
-        </Link>
+        <IconAction
+          href="/fixtures/new"
+          label="Create fixture"
+          icon={Plus}
+          variant="primary"
+          mode="responsive"
+          className="shrink-0"
+        />
       </div>
 
       <p className="text-sm text-gray-500 -mt-2">

@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import { Menu } from "lucide-react";
 import { Sidebar } from "./Sidebar";
 import type { ClubMember } from "@boutforge/shared";
 
@@ -45,14 +46,7 @@ export function AppShell({
               onClick={() => setMobileNavOpen(true)}
               className="rounded-lg border border-gray-200 p-2 text-navy hover:bg-gray-50 lg:hidden"
             >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
-              </svg>
+              <Menu className="h-5 w-5" aria-hidden />
             </button>
             <p className="truncate text-sm font-medium text-navy lg:hidden">
               {membership?.club?.name ?? "BoutForge"}

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArrowLeft, Pencil } from "lucide-react";
 import { getFighterHistory, getFighterOrganizerParticipations } from "@boutforge/api";
 import {
   fighterFullName,
@@ -12,6 +13,7 @@ import {
 } from "@boutforge/shared";
 import { getAppContext } from "@/lib/app-context";
 import { DeleteFighterButton } from "@/components/DeleteFighterButton";
+import { IconAction } from "@/components/ui/IconAction";
 
 export default async function FighterDetailPage({
   params,
@@ -45,24 +47,32 @@ export default async function FighterDetailPage({
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <Link href="/fighters" className="text-boxing text-sm hover:underline">
-            ← Back to fighters
+          <Link
+            href="/fighters"
+            className="inline-flex items-center gap-1.5 text-boxing text-sm hover:underline"
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden />
+            Back to fighters
           </Link>
           <h1 className="text-2xl font-bold text-navy mt-2">
             {fighterFullName(fighter)}
           </h1>
         </div>
         {(canEdit || canDelete) && (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-1">
             {canEdit && (
-              <Link href={`/fighters/${id}/edit`} className="btn-secondary text-sm">
-                Edit fighter
-              </Link>
+              <IconAction
+                href={`/fighters/${id}/edit`}
+                label="Edit fighter"
+                icon={Pencil}
+                mode="responsive"
+              />
             )}
             {canDelete && (
               <DeleteFighterButton
                 fighterId={id}
                 fighterName={fighterFullName(fighter)}
+                compact
               />
             )}
           </div>

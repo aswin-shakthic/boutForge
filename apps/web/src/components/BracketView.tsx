@@ -10,6 +10,7 @@ import {
   type Fighter,
 } from "@boutforge/shared";
 import { reassignBracketFighter, updateBracket } from "@boutforge/api";
+import { Check, Printer } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -399,11 +400,13 @@ export function BracketView({
                 />
                 <button
                   type="button"
-                  className="btn-secondary text-sm"
+                  className="btn-secondary text-sm gap-2"
                   onClick={saveBracketName}
                   disabled={savingName || bracketName.trim() === bracket.name}
+                  title="Save bracket name"
                 >
-                  Save name
+                  <Check className="h-4 w-4 shrink-0" aria-hidden />
+                  <span className="hidden sm:inline">Save name</span>
                 </button>
               </div>
               <span>
@@ -412,8 +415,14 @@ export function BracketView({
             </>
           )}
         </div>
-        <button type="button" onClick={() => window.print()} className="btn-secondary">
-          Print bracket
+        <button
+          type="button"
+          onClick={() => window.print()}
+          className="btn-secondary gap-2"
+          title="Print bracket"
+        >
+          <Printer className="h-4 w-4 shrink-0" aria-hidden />
+          <span className="hidden sm:inline">Print bracket</span>
         </button>
       </div>
 

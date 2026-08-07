@@ -7,11 +7,12 @@ import { DeleteEntityButton } from "@/components/DeleteEntityButton";
 export function DeleteFighterButton({
   fighterId,
   fighterName,
-  disabled,
+  compact = false,
 }: {
   fighterId: string;
   fighterName: string;
   disabled?: boolean;
+  compact?: boolean;
 }) {
   const supabase = createClient();
 
@@ -21,7 +22,7 @@ export function DeleteFighterButton({
       confirmMessage={`Delete ${fighterName}? Fighters linked to bouts cannot be removed.`}
       onDelete={() => deleteFighter(supabase, fighterId)}
       redirectTo="/fighters"
-      disabled={disabled}
+      compact={compact}
     />
   );
 }

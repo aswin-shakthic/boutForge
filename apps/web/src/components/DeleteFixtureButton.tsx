@@ -7,9 +7,11 @@ import { DeleteEntityButton } from "@/components/DeleteEntityButton";
 export function DeleteFixtureButton({
   bracketId,
   bracketName,
+  compact = false,
 }: {
   bracketId: string;
   bracketName: string;
+  compact?: boolean;
 }) {
   const supabase = createClient();
 
@@ -19,6 +21,7 @@ export function DeleteFixtureButton({
       confirmMessage={`Delete "${bracketName}"? This cannot be undone.`}
       onDelete={() => deleteBracket(supabase, bracketId)}
       redirectTo="/fixtures"
+      compact={compact}
     />
   );
 }

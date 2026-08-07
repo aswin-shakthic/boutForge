@@ -1,7 +1,8 @@
-import Link from "next/link";
+import { CalendarPlus, Eye, Pencil } from "lucide-react";
 import { getEvents } from "@boutforge/api";
 import { canEditEvent, canManageEvents } from "@boutforge/shared";
 import { getAppContext } from "@/lib/app-context";
+import { IconAction } from "@/components/ui/IconAction";
 
 export default async function EventsPage() {
   const { supabase, membership, isPlatformAdmin, profile, user, clubId } =
@@ -16,9 +17,14 @@ export default async function EventsPage() {
       <div className="page-header">
         <h1 className="page-title">Events</h1>
         {canCreate && (
-          <Link href="/events/new" className="btn-primary shrink-0 text-sm sm:text-base">
-            + Create Event
-          </Link>
+          <IconAction
+            href="/events/new"
+            label="Create event"
+            icon={CalendarPlus}
+            variant="primary"
+            mode="responsive"
+            className="shrink-0"
+          />
         )}
       </div>
 
@@ -41,28 +47,32 @@ export default async function EventsPage() {
             return (
               <article key={event.id} className="card hover:border-boxing transition-colors">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="min-w-0">
-                    <Link href={`/events/${event.id}`}>
-                      <h3 className="font-semibold text-navy hover:text-boxing">{event.name}</h3>
-                    </Link>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-semibold text-navy">{event.name}</h3>
                     <p className="text-sm text-gray-500 mt-1 break-words">
                       {event.date} · {event.venue ?? "TBD"}
                       {event.is_cross_club && " · Cross-club"}
                     </p>
                   </div>
-                  <span className="badge bg-blue-100 text-blue-800 self-start capitalize">
-                    {event.status}
-                  </span>
-                </div>
-                <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-gray-100">
-                  <Link href={`/events/${event.id}`} className="btn-secondary text-sm">
-                    View
-                  </Link>
-                  {canEdit && (
-                    <Link href={`/events/${event.id}/edit`} className="btn-secondary text-sm">
-                      Edit
-                    </Link>
-                  )}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="badge bg-blue-100 text-blue-800 capitalize">
+                      {event.status}
+                    </span>
+                    <IconAction
+                      href={`/events/${event.id}`}
+                      label="View event"
+                      icon={Eye}
+                      variant="ghost"
+                    />
+                    {canEdit && (
+                      <IconAction
+                        href={`/events/${event.id}/edit`}
+                        label="Edit event"
+                        icon={Pencil}
+                        variant="ghost"
+                      />
+                    )}
+                  </div>
                 </div>
               </article>
             );

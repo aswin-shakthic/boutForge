@@ -3,19 +3,31 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
+import {
+  CalendarDays,
+  LayoutDashboard,
+  LogOut,
+  Settings,
+  Shield,
+  Trophy,
+  Upload,
+  Users,
+  X,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { APP_NAME } from "@boutforge/shared";
 import type { ClubMember } from "@boutforge/shared";
 
-const NAV_ITEMS = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/fighters", label: "Fighters" },
-  { href: "/fixtures", label: "Fixtures" },
-  { href: "/events", label: "Events" },
-  { href: "/import", label: "Import" },
-  { href: "/settings", label: "Settings" },
+const NAV_ITEMS: { href: string; label: string; icon: LucideIcon }[] = [
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/fighters", label: "Fighters", icon: Users },
+  { href: "/fixtures", label: "Fixtures", icon: Trophy },
+  { href: "/events", label: "Events", icon: CalendarDays },
+  { href: "/import", label: "Import", icon: Upload },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
-const ADMIN_NAV = { href: "/admin", label: "Admin" };
+const ADMIN_NAV = { href: "/admin", label: "Admin", icon: Shield };
 
 export function Sidebar({
   membership,
@@ -67,35 +79,40 @@ export function Sidebar({
               onClick={onClose}
               className="rounded-lg p-2 text-white/70 hover:bg-white/10 hover:text-white lg:hidden"
             >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <X className="h-5 w-5" aria-hidden />
             </button>
           </div>
         </div>
 
         <nav className="flex-1 space-y-1 overflow-y-auto p-3 sm:p-4">
-          {items.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`block rounded-lg px-4 py-3 text-sm font-medium transition-colors sm:py-2.5 ${
-                pathname.startsWith(item.href)
-                  ? "bg-boxing text-white"
-                  : "text-white/70 hover:bg-white/10 hover:text-white"
-              }`}
-            >
-              {item.label}
-            </Link>
-          ))}
+          {items.map((item) => {
+            const Icon = item.icon;
+            const active = pathname.startsWith(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                title={item.label}
+                className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors sm:py-2.5 ${
+                  active
+                    ? "bg-boxing text-white"
+                    : "text-white/70 hover:bg-white/10 hover:text-white"
+                }`}
+              >
+                <Icon className="h-4 w-4 shrink-0" aria-hidden />
+                {item.label}
+              </Link>
+            );
+          })}
         </nav>
 
         <div className="border-t border-white/10 p-3 sm:p-4">
           <button
             type="button"
             onClick={onLogout}
-            className="w-full rounded-lg px-4 py-3 text-sm text-white/70 transition-colors hover:bg-white/10 hover:text-white sm:py-2"
+            className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm text-white/70 transition-colors hover:bg-white/10 hover:text-white sm:py-2"
           >
+            <LogOut className="h-4 w-4 shrink-0" aria-hidden />
             Log out
           </button>
         </div>

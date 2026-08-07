@@ -1,5 +1,6 @@
-import Link from "next/link";
+import { Eye, Pencil, Printer, Trophy } from "lucide-react";
 import { groupBracketsByEvent, type BracketListItem } from "@boutforge/shared";
+import { IconAction } from "@/components/ui/IconAction";
 
 function formatLabel(value: string) {
   return value.replace(/_/g, " ");
@@ -38,9 +39,12 @@ export function FixturesGroupedList({
                 {formatLabel(eventGroup.eventStatus)}
               </span>
               {eventGroup.eventId !== "unknown" && (
-                <Link href={`/events/${eventGroup.eventId}`} className="btn-secondary text-sm">
-                  View event
-                </Link>
+                <IconAction
+                  href={`/events/${eventGroup.eventId}`}
+                  label="View event"
+                  icon={Eye}
+                  mode="responsive"
+                />
               )}
             </div>
           </div>
@@ -74,24 +78,28 @@ export function FixturesGroupedList({
                         </span>
                       </div>
 
-                      <div className="flex flex-col sm:flex-row flex-wrap gap-2">
-                        <Link href={`/fixtures/${bracket.id}`} className="btn-primary text-sm text-center">
-                          View bracket
-                        </Link>
+                      <div className="flex flex-wrap items-center gap-1">
+                        <IconAction
+                          href={`/fixtures/${bracket.id}`}
+                          label="View bracket"
+                          icon={Trophy}
+                          variant="primary"
+                          mode="icon"
+                        />
                         {canEdit && (
-                          <Link
+                          <IconAction
                             href={`/fixtures/${bracket.id}/edit`}
-                            className="btn-secondary text-sm text-center"
-                          >
-                            Edit
-                          </Link>
+                            label="Edit fixture"
+                            icon={Pencil}
+                            variant="ghost"
+                          />
                         )}
-                        <Link
+                        <IconAction
                           href={`/fixtures/${bracket.id}?print=1`}
-                          className="btn-secondary text-sm text-center"
-                        >
-                          Print
-                        </Link>
+                          label="Print bracket"
+                          icon={Printer}
+                          variant="ghost"
+                        />
                       </div>
                     </article>
                   ))}

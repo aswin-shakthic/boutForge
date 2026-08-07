@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { RotateCcw, Save } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
   getAgeCategories,
@@ -159,11 +160,23 @@ export function EventCategoriesEditor({ eventId }: { eventId: string }) {
             </p>
           </div>
           <div className="flex gap-2">
-            <button type="button" className="btn-secondary text-sm" onClick={resetDefaults}>
-              Reset defaults
+            <button
+              type="button"
+              className="btn-secondary text-sm gap-2"
+              onClick={resetDefaults}
+              title="Reset to default categories"
+            >
+              <RotateCcw className="h-4 w-4 shrink-0" aria-hidden />
+              <span className="hidden sm:inline">Reset defaults</span>
             </button>
-            <button type="button" className="btn-primary text-sm" onClick={handleSave}>
-              Save for event
+            <button
+              type="button"
+              className="btn-primary text-sm gap-2"
+              onClick={handleSave}
+              title="Save categories for this event"
+            >
+              <Save className="h-4 w-4 shrink-0" aria-hidden />
+              <span className="hidden sm:inline">Save for event</span>
             </button>
           </div>
         </div>

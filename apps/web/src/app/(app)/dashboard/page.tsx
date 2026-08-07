@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { UserPlus, Trophy } from "lucide-react";
 import { getDashboardStats } from "@boutforge/api";
 import { fighterFullName } from "@boutforge/shared";
 import { getAppContext } from "@/lib/app-context";
+import { IconAction } from "@/components/ui/IconAction";
 
 export default async function DashboardPage() {
   const { supabase, clubId, membership } = await getAppContext();
@@ -42,12 +44,21 @@ export default async function DashboardPage() {
         </div>
 
         <div className="page-actions">
-          <Link href="/fixtures/new" className="btn-primary flex-1 sm:flex-none text-center">
-            + Create Fixture
-          </Link>
-          <Link href="/fighters/new" className="btn-secondary flex-1 sm:flex-none text-center">
-            + Add Fighter
-          </Link>
+          <IconAction
+            href="/fixtures/new"
+            label="Create fixture"
+            icon={Trophy}
+            variant="primary"
+            mode="responsive"
+            className="flex-1 sm:flex-none"
+          />
+          <IconAction
+            href="/fighters/new"
+            label="Add fighter"
+            icon={UserPlus}
+            mode="responsive"
+            className="flex-1 sm:flex-none"
+          />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
