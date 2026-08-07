@@ -1,4 +1,4 @@
-import type { AgeCategory, Gender, WeightClass } from "./types";
+import type { AgeCategory, Fighter, Gender, WeightClass } from "./types";
 
 export const APP_NAME = "BoutForge";
 
@@ -166,4 +166,39 @@ export function fighterFullName(f: { first_name: string; last_name: string }): s
 
 export function fighterRecord(f: { wins: number; losses: number; draws: number }): string {
   return `${f.wins}-${f.losses}-${f.draws}`;
+}
+
+export function participationRecord(summary: {
+  wins: number;
+  losses: number;
+  draws: number;
+  nc?: number;
+}): string {
+  const base = fighterRecord(summary);
+  return summary.nc ? `${base} · ${summary.nc} NC` : base;
+}
+
+export function fighterSectionKey(f: {
+  age_category_id: string | null;
+  gender: Gender;
+  weight_class_id: string | null;
+}): string {
+  return `${f.age_category_id ?? "none"}:${f.gender}:${f.weight_class_id ?? "none"}`;
+}
+
+export function fighterSectionLabel(
+  f: Pick<Fighter, "age_category" | "gender" | "weight_class">
+): string {
+  return `${f.age_category?.name ?? "Uncategorized"} · ${f.gender} · ${f.weight_class?.name ?? "No class"}`;
+}
+
+export function groupFightersBySection(fighters: Fighter[]): Map<string, Fighter[]> {
+  const groups = new Map<string, Fighter[]>();
+  for (const fighter of fighters) {
+    const key = fighterSectionKey(fighter);
+    const list = groups.get(key) ?? [];
+    list.push(fighter);
+    groups.set(key, list);
+  }
+  return groups;
 }

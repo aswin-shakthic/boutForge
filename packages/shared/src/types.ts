@@ -104,6 +104,7 @@ export interface Fighter {
   created_at: string;
   age_category?: AgeCategory;
   weight_class?: WeightClass;
+  club?: Pick<Club, "id" | "name">;
   last_bout_at?: string | null;
 }
 
@@ -175,6 +176,41 @@ export interface BoutResult {
   notes: string | null;
   recorded_by: string | null;
   recorded_at: string;
+}
+
+export type ParticipationOutcome = "win" | "loss" | "draw" | "nc";
+
+export interface ClubFighterParticipation {
+  id: string;
+  organizer_club_id: string;
+  fighter_id: string;
+  fighter_home_club_id: string;
+  bout_id: string;
+  bracket_id: string | null;
+  outcome: ParticipationOutcome;
+  method: BoutMethod | null;
+  round_ended: number | null;
+  participated_at: string;
+  fighter?: Fighter;
+  fighter_home_club?: Pick<Club, "id" | "name">;
+  organizer_club?: Pick<Club, "id" | "name">;
+  bracket?: Pick<Bracket, "id" | "name">;
+}
+
+export interface ClubParticipationGroup {
+  home_club_id: string;
+  home_club_name: string;
+  fighters: ClubParticipationFighterSummary[];
+}
+
+export interface ClubParticipationFighterSummary {
+  fighter: Fighter;
+  wins: number;
+  losses: number;
+  draws: number;
+  nc: number;
+  total_bouts: number;
+  participations: ClubFighterParticipation[];
 }
 
 export interface ClubInvite {

@@ -61,7 +61,7 @@ export default function FightersScreen() {
           >
             <Text style={styles.name}>{fighterFullName(item)}</Text>
             <Text style={styles.sub}>
-              {getAgeFromDob(item.dob)} yrs · {item.gender} ·{" "}
+              {item.club?.name ?? "—"} · {getAgeFromDob(item.dob)} yrs · {item.gender} ·{" "}
               {item.weight_class?.name ?? "—"}
             </Text>
             <Text style={styles.record}>{fighterRecord(item)}</Text>

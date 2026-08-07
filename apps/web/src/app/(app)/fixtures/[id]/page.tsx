@@ -12,13 +12,21 @@ export default async function FixtureDetailPage({
   const { id } = await params;
   const { supabase, membership, clubId } = await getAppContext();
   const { bracket, bouts } = await getBracketWithBouts(supabase, id);
-  const fighters = clubId
-    ? await getFighters(supabase, clubId, {
-        age_category_id: bracket.age_category_id ?? undefined,
-        gender: bracket.gender ?? undefined,
-        weight_class_id: bracket.weight_class_id ?? undefined,
-      })
-    : [];
+
+  const poolClubIds = new Set<string>();
+  if (clubId) poolClubIds.add(clubId);
+  for (const bout of bouts) {
+    if (bout.fighter_a?.club_id) poolClubIds.add(bout.fighter_a.club_id);
+    if (bout.fighter_b?.club_id) poolClubIds.add(bout.fighter_b.club_id);
+  }
+
+  const fighters =
+    poolClubIds.size > 0
+      ? await getFighters(supabase, Array.from(poolClubIds), {
+          age_category_id: bracket.age_category_id ?? undefined,
+          gender: bracket.gender ?? undefined,
+        })
+      : [];
   const canRecord = membership ? canRecordResults(membership.role) : false;
   const canEdit = membership ? canEditPairings(membership.role) : false;
 

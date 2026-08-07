@@ -13,8 +13,10 @@ import type {
   Bout,
   Bracket,
   Club,
+  ClubFighterParticipation,
   ClubInvite,
   ClubMember,
+  ClubParticipationGroup,
   Event,
   Fighter,
   FighterInput,
@@ -171,13 +173,18 @@ export async function getWeightClasses(
 
 export async function getFighters(
   supabase: SupabaseClient,
-  clubId: string,
+  clubId: string | string[],
   filters?: { age_category_id?: string; gender?: string; weight_class_id?: string }
 ): Promise<Fighter[]> {
+  const clubIds = Array.isArray(clubId) ? clubId : [clubId];
+  if (clubIds.length === 0) return [];
+
   let query = supabase
     .from("fighters")
-    .select("*, age_category:age_categories(*), weight_class:weight_classes(*)")
-    .eq("club_id", clubId)
+    .select(
+      "*, age_category:age_categories(*), weight_class:weight_classes(*), club:clubs(id, name)"
+    )
+    .in("club_id", clubIds)
     .eq("status", "active")
     .order("last_name");
 
@@ -187,6 +194,145 @@ export async function getFighters(
 
   const { data } = await query;
   return (data ?? []) as Fighter[];
+}
+
+function groupOrganizerParticipations(
+  participations: ClubFighterParticipation[]
+): ClubParticipationGroup[] {
+  const homeClubMap = new Map<string, ClubParticipationGroup>();
+
+  for (const entry of participations) {
+    const homeClubId = entry.fighter_home_club_id;
+    const homeClubName = entry.fighter_home_club?.name ?? "Unknown club";
+
+    if (!homeClubMap.has(homeClubId)) {
+      homeClubMap.set(homeClubId, {
+        home_club_id: homeClubId,
+        home_club_name: homeClubName,
+        fighters: [],
+      });
+    }
+
+    const group = homeClubMap.get(homeClubId)!;
+    let fighterSummary = group.fighters.find((f) => f.fighter.id === entry.fighter_id);
+
+    if (!fighterSummary) {
+      fighterSummary = {
+        fighter: entry.fighter as Fighter,
+        wins: 0,
+        losses: 0,
+        draws: 0,
+        nc: 0,
+        total_bouts: 0,
+        participations: [],
+      };
+      group.fighters.push(fighterSummary);
+    }
+
+    fighterSummary.participations.push(entry);
+    fighterSummary.total_bouts += 1;
+    if (entry.outcome === "win") fighterSummary.wins += 1;
+    if (entry.outcome === "loss") fighterSummary.losses += 1;
+    if (entry.outcome === "draw") fighterSummary.draws += 1;
+    if (entry.outcome === "nc") fighterSummary.nc += 1;
+  }
+
+  return Array.from(homeClubMap.values())
+    .map((group) => ({
+      ...group,
+      fighters: group.fighters.sort((a, b) =>
+        a.fighter.last_name.localeCompare(b.fighter.last_name)
+      ),
+    }))
+    .sort((a, b) => a.home_club_name.localeCompare(b.home_club_name));
+}
+
+/** Fighters who fought in fixtures organized by this club, grouped by home club. */
+export async function getOrganizerParticipations(
+  supabase: SupabaseClient,
+  organizerClubId: string
+): Promise<ClubParticipationGroup[]> {
+  const { data, error } = await supabase
+    .from("club_fighter_participations")
+    .select(
+      "*, fighter:fighters(*, age_category:age_categories(*), weight_class:weight_classes(*), club:clubs(id, name)), fighter_home_club:clubs!club_fighter_participations_fighter_home_club_id_fkey(id, name), bracket:brackets(id, name)"
+    )
+    .eq("organizer_club_id", organizerClubId)
+    .order("participated_at", { ascending: false });
+
+  if (error) throw error;
+  return groupOrganizerParticipations((data ?? []) as ClubFighterParticipation[]);
+}
+
+/** Participation history for one fighter, grouped by organizing club. */
+export async function getFighterOrganizerParticipations(
+  supabase: SupabaseClient,
+  fighterId: string
+): Promise<
+  Array<{
+    organizer_club_id: string;
+    organizer_club_name: string;
+    wins: number;
+    losses: number;
+    draws: number;
+    nc: number;
+    total_bouts: number;
+    participations: ClubFighterParticipation[];
+  }>
+> {
+  const { data, error } = await supabase
+    .from("club_fighter_participations")
+    .select(
+      "*, organizer_club:clubs!club_fighter_participations_organizer_club_id_fkey(id, name), bracket:brackets(id, name)"
+    )
+    .eq("fighter_id", fighterId)
+    .order("participated_at", { ascending: false });
+
+  if (error) throw error;
+
+  const byOrganizer = new Map<
+    string,
+    {
+      organizer_club_id: string;
+      organizer_club_name: string;
+      wins: number;
+      losses: number;
+      draws: number;
+      nc: number;
+      total_bouts: number;
+      participations: ClubFighterParticipation[];
+    }
+  >();
+
+  for (const entry of (data ?? []) as ClubFighterParticipation[]) {
+    const organizerId = entry.organizer_club_id;
+    const organizerName = entry.organizer_club?.name ?? "Unknown club";
+
+    if (!byOrganizer.has(organizerId)) {
+      byOrganizer.set(organizerId, {
+        organizer_club_id: organizerId,
+        organizer_club_name: organizerName,
+        wins: 0,
+        losses: 0,
+        draws: 0,
+        nc: 0,
+        total_bouts: 0,
+        participations: [],
+      });
+    }
+
+    const summary = byOrganizer.get(organizerId)!;
+    summary.participations.push(entry);
+    summary.total_bouts += 1;
+    if (entry.outcome === "win") summary.wins += 1;
+    if (entry.outcome === "loss") summary.losses += 1;
+    if (entry.outcome === "draw") summary.draws += 1;
+    if (entry.outcome === "nc") summary.nc += 1;
+  }
+
+  return Array.from(byOrganizer.values()).sort((a, b) =>
+    a.organizer_club_name.localeCompare(b.organizer_club_name)
+  );
 }
 
 export async function createFighter(
@@ -313,9 +459,9 @@ export async function createBracket(
       club_id: clubId,
       name: input.name,
       format: input.format,
-      age_category_id: firstFighter.age_category_id,
-      gender: firstFighter.gender,
-      weight_class_id: firstFighter.weight_class_id,
+      age_category_id: input.age_category_id ?? firstFighter.age_category_id,
+      gender: input.gender ?? firstFighter.gender,
+      weight_class_id: input.weight_class_id ?? firstFighter.weight_class_id,
       status: "published",
       venue: input.venue ?? null,
       scheduled_date: input.scheduled_date ?? null,

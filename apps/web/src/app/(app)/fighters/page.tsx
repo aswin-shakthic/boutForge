@@ -18,6 +18,9 @@ export default async function FightersPage() {
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-navy">Fighters</h1>
           <div className="flex gap-3">
+            <Link href="/fighters/participations" className="btn-secondary">
+              Fixture participants
+            </Link>
             <Link href="/import" className="btn-secondary">Import CSV</Link>
             <Link href="/fighters/new" className="btn-primary">+ Add Fighter</Link>
           </div>
@@ -28,6 +31,7 @@ export default async function FightersPage() {
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Name</th>
+                <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Club</th>
                 <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Category</th>
                 <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Weight</th>
                 <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Record</th>
@@ -37,7 +41,7 @@ export default async function FightersPage() {
             <tbody className="divide-y divide-gray-100">
               {fighters.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-gray-400">
+                  <td colSpan={6} className="px-6 py-12 text-center text-gray-400">
                     No fighters yet. Add your first fighter to get started.
                   </td>
                 </tr>
@@ -49,6 +53,9 @@ export default async function FightersPage() {
                       <p className="text-xs text-gray-500">
                         {getAgeFromDob(fighter.dob)} yrs · {fighter.gender}
                       </p>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-700">
+                      {fighter.club?.name ?? "—"}
                     </td>
                     <td className="px-6 py-4 text-sm">
                       <span className="badge bg-blue-100 text-blue-800">
