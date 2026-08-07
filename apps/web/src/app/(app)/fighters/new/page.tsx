@@ -23,6 +23,7 @@ export default function NewFighterPage() {
     dob: "",
     gender: "male" as "male" | "female",
     weight_kg: 0,
+    affiliation_name: "",
     notes: "",
   });
   const [error, setError] = useState("");
@@ -88,7 +89,10 @@ export default function NewFighterPage() {
 
     setLoading(true);
     try {
-      await createFighter(supabase, selectedClubId, parsed.data);
+      await createFighter(supabase, selectedClubId, {
+        ...parsed.data,
+        affiliation_name: form.affiliation_name.trim() || null,
+      });
       router.push("/fighters");
       router.refresh();
     } catch (err) {
@@ -115,8 +119,26 @@ export default function NewFighterPage() {
           memberships={memberships}
           selectedClubId={selectedClubId}
           onChange={handleClubChange}
-          description="The fighter will be registered on this club's roster."
+          label="Registering club"
+          description="Your club that manages this fighter on BoutForge."
         />
+
+        <div>
+          <label className="block text-sm font-medium mb-1">
+            Fighter&apos;s club / affiliation
+          </label>
+          <input
+            className="input-field"
+            placeholder="e.g. Mumbai Warriors BC (optional if same as registering club)"
+            value={form.affiliation_name}
+            onChange={(e) => setForm({ ...form, affiliation_name: e.target.value })}
+            disabled={!canCreate}
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            Shown on brackets and lists instead of the registering club when set. Use for guest or
+            external club fighters.
+          </p>
+        </div>
 
         {error && (
           <div className="bg-red-50 text-red-700 px-4 py-3 rounded-lg text-sm">{error}</div>

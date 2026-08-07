@@ -474,6 +474,23 @@ export async function getFighterOrganizerParticipations(
   );
 }
 
+function fighterWritePayload(
+  input: Partial<FighterFormInput>
+): Record<string, unknown> {
+  const updates: Record<string, unknown> = {};
+  if (input.first_name !== undefined) updates.first_name = input.first_name;
+  if (input.last_name !== undefined) updates.last_name = input.last_name;
+  if (input.dob !== undefined) updates.dob = input.dob;
+  if (input.gender !== undefined) updates.gender = input.gender;
+  if (input.weight_kg !== undefined) updates.weight_kg = input.weight_kg;
+  if (input.notes !== undefined) updates.notes = input.notes ?? null;
+  if (input.affiliation_name !== undefined) {
+    updates.affiliation_name = input.affiliation_name?.trim() || null;
+  }
+  if (input.status !== undefined) updates.status = input.status;
+  return updates;
+}
+
 export async function createFighter(
   supabase: SupabaseClient,
   clubId: string,
@@ -491,14 +508,10 @@ export async function createFighter(
     .from("fighters")
     .insert({
       club_id: clubId,
-      first_name: input.first_name,
-      last_name: input.last_name,
-      dob: input.dob,
-      gender: input.gender,
-      weight_kg: input.weight_kg,
+      ...fighterWritePayload(input),
       age_category_id: ageCategory?.id ?? null,
       weight_class_id: weightClass?.id ?? null,
-      notes: input.notes ?? null,
+      status: input.status ?? "active",
     })
     .select("*, age_category:age_categories(*), weight_class:weight_classes(*), club:clubs(id, name)")
     .single();
@@ -511,7 +524,7 @@ export async function updateFighter(
   fighterId: string,
   input: Partial<FighterFormInput>
 ): Promise<Fighter> {
-  const updates: Record<string, unknown> = { ...input };
+  const updates = fighterWritePayload(input);
 
   if (input.dob || input.weight_kg || input.gender) {
     const ageCategories = await getAgeCategories(supabase);
