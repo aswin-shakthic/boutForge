@@ -16,13 +16,16 @@ import {
 } from "@boutforge/api";
 import {
   fighterFullName,
-  fighterMatchesBirthYearCategory,
-  fighterMatchesWeightClass,
   fighterRecord,
   generateBracketBouts,
   getFighterClubDisplayName,
   fixtureSectionKey,
   resolveCategoryBirthYears,
+  eligibleFightersForSection,
+  getReadyFixtureSections,
+  parseWeightInput,
+  toggleSectionFighterSelection,
+  pruneFixtureWizardState,
 } from "@boutforge/shared";
 import type {
   AgeCategory,
@@ -55,8 +58,31 @@ function newId() {
 }
 
 function parseWeight(value: string): number | null {
-  const n = parseFloat(value);
-  return Number.isFinite(n) ? n : null;
+  return parseWeightInput(value);
+}
+
+type SectionConfig = {
+  format: FixtureFormat;
+  name: string;
+  byeFighterId: string | null;
+};
+
+function defaultSectionName(section: {
+  category: CategoryDraft;
+  weightClass: WeightClassDraft;
+}) {
+  return `${section.category.name} ${section.weightClass.gender} ${section.weightClass.name}`.trim();
+}
+
+function defaultSectionConfig(section: {
+  category: CategoryDraft;
+  weightClass: WeightClassDraft;
+}): SectionConfig {
+  return {
+    format: "progressive_knockout",
+    name: defaultSectionName(section),
+    byeFighterId: null,
+  };
 }
 
 function toCategoryDraft(
@@ -96,11 +122,8 @@ export default function NewFixturePage() {
   });
   const [selectedClubIds, setSelectedClubIds] = useState<Set<string>>(new Set());
   const [fighters, setFighters] = useState<Fighter[]>([]);
-  const [activeSectionKey, setActiveSectionKey] = useState<string | null>(null);
   const [selectedBySection, setSelectedBySection] = useState<Record<string, string[]>>({});
-  const [format, setFormat] = useState<FixtureFormat>("progressive_knockout");
-  const [name, setName] = useState("");
-  const [byeFighterId, setByeFighterId] = useState<string | null>(null);
+  const [configBySection, setConfigBySection] = useState<Record<string, SectionConfig>>({});
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -165,52 +188,52 @@ export default function NewFixturePage() {
     }>;
   }, [categories, weightClasses]);
 
-  const activeSection = sections.find((s) => s.key === activeSectionKey);
-  const activeSelectedIds = activeSectionKey
-    ? selectedBySection[activeSectionKey] ?? []
-    : [];
-  const selectedFighters = fighters.filter((f) => activeSelectedIds.includes(f.id));
+  const readySections = useMemo(
+    () => getReadyFixtureSections(sections, selectedBySection),
+    [sections, selectedBySection]
+  );
 
-  function eligibleForSection(section: {
-    category: CategoryDraft;
-    weightClass: WeightClassDraft;
-  }) {
-    const min = parseWeight(section.weightClass.min_weight_kg);
-    const max = parseWeight(section.weightClass.max_weight_kg);
-    return fighters.filter(
-      (f) =>
-        fighterMatchesBirthYearCategory(
-          f.dob,
-          section.category.birth_year_from,
-          section.category.birth_year_to
-        ) &&
-        fighterMatchesWeightClass(f, {
-          gender: section.weightClass.gender,
-          min_weight_kg: min,
-          max_weight_kg: max,
-        })
-    );
+  function eligibleForSection(section: (typeof sections)[number]) {
+    return eligibleFightersForSection(section, fighters, selectedBySection);
   }
 
-  const preview =
-    selectedFighters.length >= 2
-      ? generateBracketBouts(
-          format,
-          selectedFighters.map((f) => ({
-            id: f.id,
-            first_name: f.first_name,
-            last_name: f.last_name,
-            dob: f.dob,
-            gender: f.gender,
-            weight_kg: f.weight_kg,
-            wins: f.wins,
-            losses: f.losses,
-            draws: f.draws,
-            last_bout_at: f.last_bout_at,
-          })),
-          byeFighterId
-        )
-      : null;
+  function getSectionConfig(section: (typeof sections)[number]): SectionConfig {
+    return configBySection[section.key] ?? defaultSectionConfig(section);
+  }
+
+  function updateSectionConfig(
+    sectionKey: string,
+    section: (typeof sections)[number],
+    patch: Partial<SectionConfig>
+  ) {
+    setConfigBySection((prev) => ({
+      ...prev,
+      [sectionKey]: { ...(prev[sectionKey] ?? defaultSectionConfig(section)), ...patch },
+    }));
+  }
+
+  function sectionPreview(section: (typeof sections)[number]) {
+    const fighterIds = selectedBySection[section.key] ?? [];
+    const sectionFighters = fighters.filter((f) => fighterIds.includes(f.id));
+    const config = getSectionConfig(section);
+    if (sectionFighters.length < 2) return null;
+    return generateBracketBouts(
+      config.format,
+      sectionFighters.map((f) => ({
+        id: f.id,
+        first_name: f.first_name,
+        last_name: f.last_name,
+        dob: f.dob,
+        gender: f.gender,
+        weight_kg: f.weight_kg,
+        wins: f.wins,
+        losses: f.losses,
+        draws: f.draws,
+        last_bout_at: f.last_bout_at,
+      })),
+      config.byeFighterId
+    );
+  }
 
   function addCategory() {
     const from = parseInt(categoryForm.birth_year_from, 10);
@@ -281,7 +304,27 @@ export default function NewFixturePage() {
   }
 
   function removeWeightClass(id: string) {
-    setWeightClasses((prev) => prev.filter((wc) => wc.id !== id));
+    const nextWeightClasses = weightClasses.filter((wc) => wc.id !== id);
+    const validKeys = new Set(
+      nextWeightClasses
+        .map((wc) => {
+          const category = categories.find((c) => c.id === wc.categoryDraftId);
+          return category ? fixtureSectionKey(category.id, wc.id) : null;
+        })
+        .filter((key): key is string => key != null)
+    );
+
+    setWeightClasses(nextWeightClasses);
+    setSelectedBySection(
+      (prev) => pruneFixtureWizardState(prev, {}, validKeys).selectedBySection
+    );
+    setConfigBySection(
+      (prev) =>
+        pruneFixtureWizardState({}, prev, validKeys).configBySection as Record<
+          string,
+          SectionConfig
+        >
+    );
   }
 
   function toggleClub(clubId: string) {
@@ -290,31 +333,28 @@ export default function NewFixturePage() {
     else next.add(clubId);
     setSelectedClubIds(next);
     setSelectedBySection({});
-    setActiveSectionKey(null);
-  }
-
-  function selectSection(key: string, section: (typeof sections)[number]) {
-    setActiveSectionKey(key);
-    const eligible = eligibleForSection(section);
-    const current = selectedBySection[key] ?? [];
-    if (current.length === 0 && eligible.length > 0) {
-      setName(
-        `${section.category.name} ${section.weightClass.gender} ${section.weightClass.name}`.trim()
-      );
-    }
+    setConfigBySection({});
   }
 
   function toggleFighter(fighterId: string, sectionKey: string) {
-    setSelectedBySection((prev) => {
-      const current = new Set(prev[sectionKey] ?? []);
-      if (current.has(fighterId)) current.delete(fighterId);
-      else current.add(fighterId);
-      return { ...prev, [sectionKey]: Array.from(current) };
+    setSelectedBySection((prev) => toggleSectionFighterSelection(fighterId, sectionKey, prev));
+  }
+
+  function goToFormatStep() {
+    setConfigBySection((prev) => {
+      const next = { ...prev };
+      for (const section of readySections) {
+        if (!next[section.key]) {
+          next[section.key] = defaultSectionConfig(section);
+        }
+      }
+      return next;
     });
+    setStep(4);
   }
 
   async function handlePublish() {
-    if (!hostClubId || !activeSection || activeSelectedIds.length < 2) return;
+    if (!hostClubId || readySections.length === 0) return;
 
     setLoading(true);
     setError("");
@@ -354,30 +394,40 @@ export default function NewFixturePage() {
         weightMap.set(wc.id, created.id);
       }
 
-      const ageCategoryId = categoryMap.get(activeSection.category.id);
-      const weightClassId = weightMap.get(activeSection.weightClass.id);
-      if (!ageCategoryId || !weightClassId) {
-        throw new Error("Could not resolve category or weight class.");
+      let firstBracketId: string | null = null;
+
+      for (const section of readySections) {
+        const fighterIds = selectedBySection[section.key] ?? [];
+        const config = getSectionConfig(section);
+        const ageCategoryId = categoryMap.get(section.category.id);
+        const weightClassId = weightMap.get(section.weightClass.id);
+        if (!ageCategoryId || !weightClassId) continue;
+
+        await assignFightersToFixtureSection(
+          supabase,
+          fighterIds,
+          ageCategoryId,
+          weightClassId
+        );
+
+        const { bracket } = await createBracket(supabase, hostClubId, {
+          name: config.name || defaultSectionName(section),
+          format: config.format,
+          fighter_ids: fighterIds,
+          bye_fighter_id: config.byeFighterId ?? undefined,
+          age_category_id: ageCategoryId,
+          weight_class_id: weightClassId,
+          gender: section.weightClass.gender,
+        });
+
+        if (!firstBracketId) firstBracketId = bracket.id;
       }
 
-      await assignFightersToFixtureSection(
-        supabase,
-        activeSelectedIds,
-        ageCategoryId,
-        weightClassId
-      );
+      if (!firstBracketId) {
+        throw new Error("No brackets were created.");
+      }
 
-      const { bracket } = await createBracket(supabase, hostClubId, {
-        name: name || `Fixture ${new Date().toLocaleDateString("en-IN")}`,
-        format,
-        fighter_ids: activeSelectedIds,
-        bye_fighter_id: byeFighterId ?? undefined,
-        age_category_id: ageCategoryId,
-        weight_class_id: weightClassId,
-        gender: activeSection.weightClass.gender,
-      });
-
-      router.push(`/fixtures/${bracket.id}`);
+      router.push("/fixtures");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create fixture");
       setLoading(false);
@@ -722,57 +772,49 @@ export default function NewFixturePage() {
               return (
                 <div
                   key={section.key}
-                  className={`border rounded-lg p-4 space-y-3 ${
-                    activeSectionKey === section.key
-                      ? "border-boxing bg-red-50/40"
-                      : "border-gray-100"
-                  }`}
+                  className="border border-gray-100 rounded-lg p-4 space-y-3"
                 >
-                  <button
-                    type="button"
-                    onClick={() => selectSection(section.key, section)}
-                    className="text-left w-full"
-                  >
+                  <div>
                     <p className="font-medium text-sm text-navy">
                       {section.category.name} · {section.weightClass.gender} ·{" "}
                       {section.weightClass.name}
                     </p>
                     <p className="text-xs text-gray-500">
-                      Born {Math.min(section.category.birth_year_from, section.category.birth_year_to)}–
-                      {Math.max(section.category.birth_year_from, section.category.birth_year_to)} ·{" "}
-                      {eligible.length} eligible · {selected.length} selected
+                      Born{" "}
+                      {Math.min(section.category.birth_year_from, section.category.birth_year_to)}–
+                      {Math.max(section.category.birth_year_from, section.category.birth_year_to)}{" "}
+                      · {eligible.length} available · {selected.length} selected
                     </p>
-                  </button>
+                  </div>
 
-                  {activeSectionKey === section.key && (
-                    <div className="space-y-2 max-h-64 overflow-y-auto pt-2 border-t border-gray-100">
-                      {eligible.length === 0 ? (
-                        <p className="text-sm text-gray-500">
-                          No fighters match this birth year and weight range.
-                        </p>
-                      ) : (
-                        eligible.map((f) => (
-                          <label
-                            key={f.id}
-                            className="flex items-center gap-3 p-3 border border-gray-100 rounded-lg hover:bg-gray-50 cursor-pointer"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={selected.includes(f.id)}
-                              onChange={() => toggleFighter(f.id, section.key)}
-                            />
-                            <div className="flex-1">
-                              <p className="font-medium text-sm">{fighterFullName(f)}</p>
-                              <p className="text-xs text-gray-500">
-                                {getFighterClubDisplayName(f)} · {f.weight_kg} kg ·{" "}
-                                {fighterRecord(f)}
-                              </p>
-                            </div>
-                          </label>
-                        ))
-                      )}
-                    </div>
-                  )}
+                  <div className="space-y-2 max-h-64 overflow-y-auto pt-2 border-t border-gray-100">
+                    {eligible.length === 0 ? (
+                      <p className="text-sm text-gray-500">
+                        No available fighters for this section (already assigned elsewhere or no
+                        match).
+                      </p>
+                    ) : (
+                      eligible.map((f) => (
+                        <label
+                          key={f.id}
+                          className="flex items-center gap-3 p-3 border border-gray-100 rounded-lg hover:bg-gray-50 cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selected.includes(f.id)}
+                            onChange={() => toggleFighter(f.id, section.key)}
+                          />
+                          <div className="flex-1">
+                            <p className="font-medium text-sm">{fighterFullName(f)}</p>
+                            <p className="text-xs text-gray-500">
+                              {getFighterClubDisplayName(f)} · {f.weight_kg} kg ·{" "}
+                              {fighterRecord(f)}
+                            </p>
+                          </div>
+                        </label>
+                      ))
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -784,122 +826,176 @@ export default function NewFixturePage() {
             </button>
             <button
               type="button"
-              onClick={() => setStep(4)}
+              onClick={goToFormatStep}
               className="btn-primary"
-              disabled={!activeSectionKey || activeSelectedIds.length < 2}
+              disabled={readySections.length === 0}
             >
-              Next — {activeSelectedIds.length} fighters selected
+              Next — {readySections.length} bracket
+              {readySections.length === 1 ? "" : "s"} ready
             </button>
           </div>
         </div>
       )}
 
-      {step === 4 && activeSection && (
-        <div className="card space-y-4">
+      {step === 4 && readySections.length > 0 && (
+        <div className="card space-y-6">
           <h2 className="font-semibold text-navy">Step 4 — Bracket format</h2>
-          <p className="text-sm text-gray-600">
-            {activeSection.category.name} · {activeSection.weightClass.gender} ·{" "}
-            {activeSection.weightClass.name} · {activeSelectedIds.length} fighters
+          <p className="text-sm text-gray-500">
+            Configure format for each section with at least 2 fighters.
           </p>
-          <div>
-            <label className="block text-sm font-medium mb-1">Bracket name</label>
-            <input
-              className="input-field"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Youth Male 52kg — July 2026"
-            />
-          </div>
-          <div className="space-y-2">
-            {(
-              [
-                ["progressive_knockout", "Progressive Knockout Bracket (recommended)"],
-                ["round_robin", "Round-Robin Series"],
-                ["manual", "Manual"],
-              ] as const
-            ).map(([value, label]) => (
-              <label key={value} className="flex items-center gap-2 text-sm">
-                <input
-                  type="radio"
-                  checked={format === value}
-                  onChange={() => setFormat(value)}
-                />
-                {label}
-              </label>
-            ))}
-          </div>
-          {activeSelectedIds.length % 2 === 1 && format === "progressive_knockout" && (
-            <div>
-              <label className="block text-sm font-medium mb-1">Bye fighter</label>
-              <select
-                className="input-field"
-                value={byeFighterId ?? ""}
-                onChange={(e) => setByeFighterId(e.target.value || null)}
+
+          {readySections.map((section) => {
+            const config = getSectionConfig(section);
+            const fighterIds = selectedBySection[section.key] ?? [];
+            const sectionFighters = fighters.filter((f) => fighterIds.includes(f.id));
+
+            return (
+              <div
+                key={section.key}
+                className="border border-gray-100 rounded-lg p-4 space-y-4"
               >
-                <option value="">Auto-suggest</option>
-                {selectedFighters.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {fighterFullName(f)} ({getFighterClubDisplayName(f)})
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+                <p className="font-medium text-sm text-navy">
+                  {section.category.name} · {section.weightClass.gender} ·{" "}
+                  {section.weightClass.name} · {fighterIds.length} fighters
+                </p>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Bracket name</label>
+                  <input
+                    className="input-field"
+                    value={config.name}
+                    onChange={(e) =>
+                      updateSectionConfig(section.key, section, { name: e.target.value })
+                    }
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  {(
+                    [
+                      ["progressive_knockout", "Progressive Knockout Bracket (recommended)"],
+                      ["round_robin", "Round-Robin Series"],
+                      ["manual", "Manual"],
+                    ] as const
+                  ).map(([value, label]) => (
+                    <label key={value} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="radio"
+                        checked={config.format === value}
+                        onChange={() =>
+                          updateSectionConfig(section.key, section, { format: value })
+                        }
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+
+                {fighterIds.length % 2 === 1 &&
+                  config.format === "progressive_knockout" && (
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Bye fighter</label>
+                      <select
+                        className="input-field"
+                        value={config.byeFighterId ?? ""}
+                        onChange={(e) =>
+                          updateSectionConfig(section.key, section, {
+                            byeFighterId: e.target.value || null,
+                          })
+                        }
+                      >
+                        <option value="">Auto-suggest</option>
+                        {sectionFighters.map((f) => (
+                          <option key={f.id} value={f.id}>
+                            {fighterFullName(f)} ({getFighterClubDisplayName(f)})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+              </div>
+            );
+          })}
+
           <div className="flex gap-3">
             <button type="button" onClick={() => setStep(3)} className="btn-secondary">
               Back
             </button>
             <button type="button" onClick={() => setStep(5)} className="btn-primary">
-              Next — Preview
+              Next — Preview all brackets
             </button>
           </div>
         </div>
       )}
 
-      {step === 5 && preview && activeSection && (
-        <div className="card space-y-4">
+      {step === 5 && readySections.length > 0 && (
+        <div className="card space-y-6">
           <h2 className="font-semibold text-navy">Step 5 — Review & publish</h2>
           <p className="text-sm text-gray-500">
-            {activeSection.category.name} · {activeSection.weightClass.gender} ·{" "}
-            {activeSection.weightClass.name}
+            Publishing {readySections.length} bracket
+            {readySections.length === 1 ? "" : "s"}.
           </p>
-          {preview.byeFighterId && (
-            <p className="text-sm text-gray-500">
-              Bye:{" "}
-              {fighterFullName(
-                selectedFighters.find((f) => f.id === preview.byeFighterId)!
-              )}
-            </p>
-          )}
-          <div className="space-y-2">
-            {preview.bouts.map((bout) => (
+
+          {readySections.map((section) => {
+            const preview = sectionPreview(section);
+            const config = getSectionConfig(section);
+            const fighterIds = selectedBySection[section.key] ?? [];
+            const sectionFighters = fighters.filter((f) => fighterIds.includes(f.id));
+            if (!preview) return null;
+
+            return (
               <div
-                key={bout.bout_order}
-                className="border border-gray-100 rounded-lg p-3 text-sm"
+                key={section.key}
+                className="border border-gray-100 rounded-lg p-4 space-y-3"
               >
-                <span className="text-gray-500">
-                  R{bout.round_number} Bout {bout.bout_order}:
-                </span>{" "}
-                {bout.slot_a_type === "fighter"
-                  ? fighterFullName(
-                      selectedFighters.find((f) => f.id === bout.fighter_a_id)!
-                    )
-                  : bout.slot_a_type === "winner_of"
-                    ? `Winner(Bout ${bout.source_bout_a_order})`
-                    : "TBD"}{" "}
-                vs{" "}
-                {bout.slot_b_type === "fighter"
-                  ? fighterFullName(
-                      selectedFighters.find((f) => f.id === bout.fighter_b_id)!
-                    )
-                  : bout.slot_b_type === "bye"
-                    ? "BYE"
-                    : bout.slot_b_type === "winner_of"
-                      ? `Winner(Bout ${bout.source_bout_b_order})`
-                      : "TBD"}
+                <p className="font-medium text-sm text-navy">
+                  {config.name || defaultSectionName(section)}
+                </p>
+                <p className="text-xs text-gray-500">
+                  {section.category.name} · {section.weightClass.gender} ·{" "}
+                  {section.weightClass.name} · {config.format.replace(/_/g, " ")}
+                </p>
+                {preview.byeFighterId && (
+                  <p className="text-sm text-gray-500">
+                    Bye:{" "}
+                    {fighterFullName(
+                      sectionFighters.find((f) => f.id === preview.byeFighterId)!
+                    )}
+                  </p>
+                )}
+                <div className="space-y-2">
+                  {preview.bouts.map((bout) => (
+                    <div
+                      key={bout.bout_order}
+                      className="border border-gray-100 rounded-lg p-3 text-sm"
+                    >
+                      <span className="text-gray-500">
+                        R{bout.round_number} Bout {bout.bout_order}:
+                      </span>{" "}
+                      {bout.slot_a_type === "fighter"
+                        ? fighterFullName(
+                            sectionFighters.find((f) => f.id === bout.fighter_a_id)!
+                          )
+                        : bout.slot_a_type === "winner_of"
+                          ? `Winner(Bout ${bout.source_bout_a_order})`
+                          : "TBD"}{" "}
+                      vs{" "}
+                      {bout.slot_b_type === "fighter"
+                        ? fighterFullName(
+                            sectionFighters.find((f) => f.id === bout.fighter_b_id)!
+                          )
+                        : bout.slot_b_type === "bye"
+                          ? "BYE"
+                          : bout.slot_b_type === "winner_of"
+                            ? `Winner(Bout ${bout.source_bout_b_order})`
+                            : "TBD"}
+                    </div>
+                  ))}
+                </div>
               </div>
-            ))}
-          </div>
+            );
+          })}
+
           <div className="flex gap-3">
             <button type="button" onClick={() => setStep(4)} className="btn-secondary">
               Back
@@ -910,7 +1006,7 @@ export default function NewFixturePage() {
               className="btn-primary"
               disabled={loading}
             >
-              {loading ? "Publishing..." : "Publish Bracket"}
+              {loading ? "Publishing..." : `Publish ${readySections.length} bracket(s)`}
             </button>
           </div>
         </div>

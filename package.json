@@ -12,6 +12,7 @@
     "build": "turbo build",
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
+    "test": "turbo test",
     "db:start": "npx supabase start -x vector",
     "db:reset": "npx supabase db reset",
     "db:stop": "npx supabase stop"
