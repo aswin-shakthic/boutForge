@@ -5,6 +5,8 @@ import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { createInvite } from "@boutforge/api";
 import { inviteSchema } from "@boutforge/shared";
+import { LoadingOverlay } from "@/components/LoadingOverlay";
+import { usePendingLoads } from "@/hooks/usePendingLoads";
 
 export default function SettingsPage() {
   const supabase = createClient();
@@ -13,20 +15,30 @@ export default function SettingsPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [clubId, setClubId] = useState<string | null>(null);
+  const { isPending, end } = usePendingLoads(1);
 
   useEffect(() => {
+    let active = true;
+
     supabase.auth
       .getUser()
       .then(async ({ data: { user } }: { data: { user: User | null } }) => {
-      if (!user) return;
-      const { data } = await supabase
-        .from("club_members")
-        .select("club_id")
-        .eq("user_id", user.id)
-        .single();
-      if (data) setClubId(data.club_id);
-    });
-  }, [supabase]);
+        if (!user || !active) return;
+        const { data } = await supabase
+          .from("club_members")
+          .select("club_id")
+          .eq("user_id", user.id)
+          .single();
+        if (data && active) setClubId(data.club_id);
+      })
+      .finally(() => {
+        if (active) end();
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [supabase, end]);
 
   async function handleCreateInvite() {
     if (!clubId) return;
@@ -48,6 +60,10 @@ export default function SettingsPage() {
   }
 
   return (
+    <LoadingOverlay
+      loading={isPending || loading}
+      label={loading ? "Generating invite…" : "Loading settings…"}
+    >
     <div className="max-w-lg space-y-6">
       <h1 className="text-2xl font-bold text-navy">Settings</h1>
 
@@ -94,5 +110,6 @@ export default function SettingsPage() {
         )}
       </div>
     </div>
+    </LoadingOverlay>
   );
 }

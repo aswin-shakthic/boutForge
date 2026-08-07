@@ -15,7 +15,7 @@ export default async function FixturesPage() {
         <div>
           <h1 className="text-2xl font-bold text-navy">Fixtures</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Grouped by age category and weight class. Open any bracket to view or print.
+            Grouped by event, then age category and weight class. Open any bracket to view or print.
           </p>
         </div>
         <Link href="/fixtures/new" className="btn-primary shrink-0">

@@ -87,10 +87,18 @@ export type BracketListItem = {
   scheduled_date: string | null;
   created_at: string;
   gender: string | null;
+  event_id: string;
   age_category_id: string | null;
   weight_class_id: string | null;
   age_category?: { name: string } | null;
   weight_class?: { name: string; gender?: string | null } | null;
+  event?: {
+    id: string;
+    name: string;
+    date: string;
+    venue?: string | null;
+    status: string;
+  } | null;
 };
 
 export type BracketDisplayGroup = {
@@ -98,6 +106,15 @@ export type BracketDisplayGroup = {
   title: string;
   subtitle: string;
   brackets: BracketListItem[];
+};
+
+export type EventBracketGroup = {
+  key: string;
+  eventId: string;
+  title: string;
+  subtitle: string;
+  eventStatus: string;
+  sections: BracketDisplayGroup[];
 };
 
 export function groupBracketsForDisplay(brackets: BracketListItem[]): BracketDisplayGroup[] {
@@ -123,4 +140,44 @@ export function groupBracketsForDisplay(brackets: BracketListItem[]): BracketDis
   return Array.from(groups.values()).sort((a, b) =>
     `${a.title}${a.subtitle}`.localeCompare(`${b.title}${b.subtitle}`)
   );
+}
+
+export function groupBracketsByEvent(brackets: BracketListItem[]): EventBracketGroup[] {
+  const byEvent = new Map<string, BracketListItem[]>();
+
+  for (const bracket of brackets) {
+    const eventId = bracket.event_id ?? bracket.event?.id ?? "unknown";
+    const list = byEvent.get(eventId) ?? [];
+    list.push(bracket);
+    byEvent.set(eventId, list);
+  }
+
+  const eventGroups: EventBracketGroup[] = [];
+
+  for (const [eventId, eventBrackets] of byEvent) {
+    const sample = eventBrackets[0];
+    const event = sample.event;
+    const title = event?.name ?? "Unlinked event";
+    const subtitleParts = [
+      event?.date,
+      event?.venue ?? undefined,
+      event?.status ? event.status.replace(/_/g, " ") : undefined,
+    ].filter(Boolean);
+
+    eventGroups.push({
+      key: eventId,
+      eventId,
+      title,
+      subtitle: subtitleParts.join(" · "),
+      eventStatus: event?.status ?? "draft",
+      sections: groupBracketsForDisplay(eventBrackets),
+    });
+  }
+
+  return eventGroups.sort((a, b) => {
+    const dateA = a.sections[0]?.brackets[0]?.event?.date ?? "";
+    const dateB = b.sections[0]?.brackets[0]?.event?.date ?? "";
+    if (dateA !== dateB) return dateB.localeCompare(dateA);
+    return a.title.localeCompare(b.title);
+  });
 }

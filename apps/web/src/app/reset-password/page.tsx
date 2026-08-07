@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { AuthLayout, AuthLink } from "@/components/AuthLayout";
 import { SupabaseConfigAlert } from "@/components/SupabaseConfigAlert";
+import { LoadingOverlay } from "@/components/LoadingOverlay";
+import { PageLoader } from "@/components/PageLoader";
+import { usePendingLoads } from "@/hooks/usePendingLoads";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -15,14 +18,21 @@ export default function ResetPasswordPage() {
   const [ready, setReady] = useState(false);
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+  const { isPending, end } = usePendingLoads(1);
 
   useEffect(() => {
-    if (!configured) return;
+    if (!configured) {
+      end();
+      return;
+    }
 
+    let active = true;
     const supabase = createClient();
 
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) setReady(true);
+      if (session && active) setReady(true);
+    }).finally(() => {
+      if (active) end();
     });
 
     const {
@@ -33,8 +43,11 @@ export default function ResetPasswordPage() {
       }
     });
 
-    return () => subscription.unsubscribe();
-  }, [configured]);
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, [configured, end]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -78,20 +91,27 @@ export default function ResetPasswordPage() {
     return (
       <AuthLayout title="Reset password" subtitle="Verifying your reset link">
         <SupabaseConfigAlert />
-        <p className="text-gray-500 text-sm text-center">
-          {configured
-            ? "Open the reset link from your email to continue."
-            : "Authentication is not configured on this deployment."}
-        </p>
-        <div className="text-center mt-4">
-          <AuthLink href="/login">Back to login</AuthLink>
-        </div>
+        {isPending ? (
+          <PageLoader label="Verifying reset link…" inline />
+        ) : (
+          <>
+            <p className="text-gray-500 text-sm text-center">
+              {configured
+                ? "Open the reset link from your email to continue."
+                : "Authentication is not configured on this deployment."}
+            </p>
+            <div className="text-center mt-4">
+              <AuthLink href="/login">Back to login</AuthLink>
+            </div>
+          </>
+        )}
       </AuthLayout>
     );
   }
 
   return (
     <AuthLayout title="Choose a new password" subtitle="Enter your new password below">
+      <LoadingOverlay loading={loading} label="Updating password…">
       <SupabaseConfigAlert />
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
@@ -129,6 +149,7 @@ export default function ResetPasswordPage() {
           {loading ? "Updating…" : "Update password"}
         </button>
       </form>
+      </LoadingOverlay>
     </AuthLayout>
   );
 }

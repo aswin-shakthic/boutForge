@@ -7,6 +7,7 @@ import { createClub, joinClubWithInvite, resolveAuthDestination } from "@boutfor
 import { signupSchema } from "@boutforge/shared";
 import { AuthLayout, AuthLink } from "@/components/AuthLayout";
 import { SupabaseConfigAlert } from "@/components/SupabaseConfigAlert";
+import { LoadingOverlay } from "@/components/LoadingOverlay";
 
 function SignupForm() {
   const router = useRouter();
@@ -113,6 +114,7 @@ function SignupForm() {
 
   return (
     <AuthLayout title="Create account" subtitle="Set up your boxing club">
+      <LoadingOverlay loading={loading} label="Creating account…">
       <SupabaseConfigAlert />
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
@@ -219,6 +221,7 @@ function SignupForm() {
           Already have an account? <AuthLink href="/login">Log in</AuthLink>
         </div>
       </form>
+      </LoadingOverlay>
     </AuthLayout>
   );
 }

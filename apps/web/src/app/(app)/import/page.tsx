@@ -6,6 +6,8 @@ import { getUserClubs, importFightersFromCSV } from "@boutforge/api";
 import { canImportFighters, parseBirthYear } from "@boutforge/shared";
 import type { ClubMember } from "@boutforge/shared";
 import { ClubSelector } from "@/components/ClubSelector";
+import { LoadingOverlay } from "@/components/LoadingOverlay";
+import { usePendingLoads } from "@/hooks/usePendingLoads";
 
 function parseCSV(text: string): Array<{
   name: string;
@@ -56,6 +58,7 @@ export default function ImportPage() {
   } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const { isPending, end } = usePendingLoads(1);
 
   const importableMemberships = useMemo(
     () => memberships.filter((entry) => canImportFighters(entry.role)),
@@ -63,26 +66,38 @@ export default function ImportPage() {
   );
 
   const importDisabled =
-    loading || !selectedClubId || importableMemberships.length === 0;
+    isPending || loading || !selectedClubId || importableMemberships.length === 0;
 
   useEffect(() => {
-    async function load() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
+    let active = true;
 
-      const clubs = await getUserClubs(supabase, user.id);
-      setMemberships(clubs);
-      const firstImportable = clubs.find((entry) => canImportFighters(entry.role));
-      if (firstImportable) {
-        setSelectedClubId(firstImportable.club_id);
-      } else if (clubs.length > 0) {
-        setSelectedClubId(clubs[0].club_id);
+    async function load() {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const clubs = await getUserClubs(supabase, user.id);
+        if (!active) return;
+
+        setMemberships(clubs);
+        const firstImportable = clubs.find((entry) => canImportFighters(entry.role));
+        if (firstImportable) {
+          setSelectedClubId(firstImportable.club_id);
+        } else if (clubs.length > 0) {
+          setSelectedClubId(clubs[0].club_id);
+        }
+      } finally {
+        if (active) end();
       }
     }
+
     load();
-  }, [supabase]);
+    return () => {
+      active = false;
+    };
+  }, [supabase, end]);
 
   function handleClubChange(clubId: string) {
     setSelectedClubId(clubId);
@@ -151,6 +166,10 @@ Amit Patel,2009,male,59,`);
   }
 
   return (
+    <LoadingOverlay
+      loading={isPending || loading}
+      label={loading ? "Importing fighters…" : "Loading import…"}
+    >
     <div className="max-w-lg space-y-6">
       <h1 className="text-2xl font-bold text-navy">Import Fighters</h1>
 
@@ -256,7 +275,6 @@ Amit Patel,2009,male,59,`);
           </button>
         </div>
 
-        {loading && <p className="text-sm text-gray-500">Importing...</p>}
         {error && (
           <div className="bg-red-50 text-red-700 px-4 py-3 rounded-lg text-sm">
             {error}
@@ -290,5 +308,6 @@ Amit Patel,2009,male,59,`);
         )}
       </div>
     </div>
+    </LoadingOverlay>
   );
 }

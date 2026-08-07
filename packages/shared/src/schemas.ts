@@ -55,6 +55,7 @@ export const bracketSchema = z.object({
   age_category_id: z.string().uuid().optional(),
   weight_class_id: z.string().uuid().optional(),
   gender: z.enum(["male", "female"]).optional(),
+  event_id: z.string().uuid("Event is required for every fixture"),
 });
 
 export const inviteSchema = z.object({

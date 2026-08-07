@@ -10,6 +10,7 @@ import {
   parseBirthYear,
   resolveImportableClub,
   type BracketInput,
+  type BracketListItem,
   type BoutResultInput,
   type EventInput,
   type FighterFormInput,
@@ -552,6 +553,10 @@ export async function createBracket(
   clubId: string,
   input: BracketInput
 ): Promise<{ bracket: Bracket; bouts: Bout[] }> {
+  if (!input.event_id) {
+    throw new Error("Every fixture must be linked to an event");
+  }
+
   const { data: fighters } = await supabase
     .from("fighters")
     .select("*")
@@ -585,6 +590,7 @@ export async function createBracket(
     .from("brackets")
     .insert({
       club_id: clubId,
+      event_id: input.event_id,
       name: input.name,
       format: input.format,
       age_category_id: input.age_category_id ?? firstFighter.age_category_id,
@@ -614,6 +620,7 @@ export async function createBracket(
       .from("bouts")
       .insert({
         bracket_id: bracket.id,
+        event_id: input.event_id,
         club_id: clubId,
         fighter_a_id: preview.fighter_a_id,
         fighter_b_id: preview.fighter_b_id,
@@ -654,18 +661,32 @@ export async function createBracket(
   return { bracket: bracket as Bracket, bouts: createdBouts };
 }
 
-export async function getBrackets(
+export async function getBracketsByEvent(
   supabase: SupabaseClient,
-  clubId: string
-): Promise<Bracket[]> {
+  eventId: string
+): Promise<BracketListItem[]> {
   const { data } = await supabase
     .from("brackets")
     .select(
-      "*, age_category:age_categories(name), weight_class:weight_classes(name, gender)"
+      "*, age_category:age_categories(name), weight_class:weight_classes(name, gender), event:events(id, name, date, venue, status)"
+    )
+    .eq("event_id", eventId)
+    .order("created_at", { ascending: false });
+  return (data ?? []) as BracketListItem[];
+}
+
+export async function getBrackets(
+  supabase: SupabaseClient,
+  clubId: string
+): Promise<BracketListItem[]> {
+  const { data } = await supabase
+    .from("brackets")
+    .select(
+      "*, age_category:age_categories(name), weight_class:weight_classes(name, gender), event:events(id, name, date, venue, status)"
     )
     .eq("club_id", clubId)
     .order("created_at", { ascending: false });
-  return (data ?? []) as Bracket[];
+  return (data ?? []) as BracketListItem[];
 }
 
 export async function getBracketWithBouts(
@@ -798,7 +819,8 @@ export async function reassignBracketFighter(
 export async function createEvent(
   supabase: SupabaseClient,
   input: EventInput,
-  clubIds: string[]
+  clubIds: string[],
+  organizerClubId?: string
 ): Promise<Event> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
@@ -811,6 +833,7 @@ export async function createEvent(
       venue: input.venue ?? null,
       state_zone: input.state_zone ?? null,
       is_cross_club: input.is_cross_club,
+      organizer_club_id: organizerClubId ?? clubIds[0] ?? null,
       organizer_user_id: user.id,
       status: "draft",
     })

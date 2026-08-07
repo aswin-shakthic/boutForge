@@ -13,6 +13,8 @@ import { reassignBracketFighter } from "@boutforge/api";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { LoadingOverlay } from "@/components/LoadingOverlay";
+import { usePendingLoads } from "@/hooks/usePendingLoads";
 import { ResultEntryModal } from "./ResultEntryModal";
 
 function sourceLabel(bout: Bout, bouts: Bout[], slot: "a" | "b"): string {
@@ -310,6 +312,7 @@ export function BracketView({
   const supabase = createClient();
   const [bouts, setBouts] = useState(initialBouts);
   const [selectedBout, setSelectedBout] = useState<Bout | null>(null);
+  const { isPending, start, end } = usePendingLoads();
 
   useEffect(() => {
     setBouts(initialBouts);
@@ -329,14 +332,17 @@ export function BracketView({
 
       if (isDemo) return;
 
+      start();
       try {
         await reassignBracketFighter(supabase, bracket.id, boutId, slot, fighterId);
         router.refresh();
       } catch {
         setBouts(bouts);
+      } finally {
+        end();
       }
     },
-    [bouts, bracket.id, fighters, isDemo, router, supabase]
+    [bouts, bracket.id, end, fighters, isDemo, router, start, supabase]
   );
 
   const remainingCount = useMemo(() => {
@@ -359,6 +365,7 @@ export function BracketView({
       : bracket.name;
 
   return (
+    <LoadingOverlay loading={isPending} label="Updating bracket…">
     <div className="space-y-4">
       <div className="bracket-actions no-print">
         <div className="text-sm text-gray-500">
@@ -441,5 +448,6 @@ export function BracketView({
         />
       )}
     </div>
+    </LoadingOverlay>
   );
 }

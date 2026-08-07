@@ -153,7 +153,7 @@ export const MOCK_ALL_FIGHTERS: Fighter[] = [
 export const MOCK_BRACKET: Bracket = {
   id: "bracket-youth-60",
   club_id: MOCK_CLUB.id,
-  event_id: null,
+  event_id: "event-july-knockout",
   name: "Youth Male 60kg — July Knockout",
   format: "progressive_knockout",
   age_category_id: youth.id,
@@ -170,7 +170,7 @@ const F = (id: string) => MOCK_FIGHTERS_60KG.find((x) => x.id === id)!;
 
 export const MOCK_BOUTS: Bout[] = [
   {
-    id: "bout-1", bracket_id: MOCK_BRACKET.id, event_id: null, club_id: MOCK_CLUB.id,
+    id: "bout-1", bracket_id: MOCK_BRACKET.id, event_id: "event-july-knockout", club_id: MOCK_CLUB.id,
     fighter_a_id: "f-suresh", fighter_b_id: "f-karan", round_number: 1, bout_order: 1,
     winner_advances_to_bout_id: "bout-4", source_bout_a_id: null, source_bout_b_id: null,
     slot_a_type: "fighter", slot_b_type: "fighter", status: "completed",
@@ -179,7 +179,7 @@ export const MOCK_BOUTS: Bout[] = [
     result: { id: "r1", bout_id: "bout-1", winner_id: "f-suresh", method: "UD", round_ended: 3, scorecards: null, notes: null, recorded_by: null, recorded_at: "" },
   },
   {
-    id: "bout-2", bracket_id: MOCK_BRACKET.id, event_id: null, club_id: MOCK_CLUB.id,
+    id: "bout-2", bracket_id: MOCK_BRACKET.id, event_id: "event-july-knockout", club_id: MOCK_CLUB.id,
     fighter_a_id: "f-amit", fighter_b_id: "f-deepak", round_number: 1, bout_order: 2,
     winner_advances_to_bout_id: "bout-4", source_bout_a_id: null, source_bout_b_id: null,
     slot_a_type: "fighter", slot_b_type: "fighter", status: "completed",
@@ -188,7 +188,7 @@ export const MOCK_BOUTS: Bout[] = [
     result: { id: "r2", bout_id: "bout-2", winner_id: "f-deepak", method: "SD", round_ended: 3, scorecards: null, notes: null, recorded_by: null, recorded_at: "" },
   },
   {
-    id: "bout-3", bracket_id: MOCK_BRACKET.id, event_id: null, club_id: MOCK_CLUB.id,
+    id: "bout-3", bracket_id: MOCK_BRACKET.id, event_id: "event-july-knockout", club_id: MOCK_CLUB.id,
     fighter_a_id: "f-rahul", fighter_b_id: "f-vikram", round_number: 1, bout_order: 3,
     winner_advances_to_bout_id: "bout-5", source_bout_a_id: null, source_bout_b_id: null,
     slot_a_type: "fighter", slot_b_type: "fighter", status: "completed",
@@ -197,7 +197,7 @@ export const MOCK_BOUTS: Bout[] = [
     result: { id: "r3", bout_id: "bout-3", winner_id: "f-rahul", method: "UD", round_ended: 3, scorecards: null, notes: null, recorded_by: null, recorded_at: "" },
   },
   {
-    id: "bout-4", bracket_id: MOCK_BRACKET.id, event_id: null, club_id: MOCK_CLUB.id,
+    id: "bout-4", bracket_id: MOCK_BRACKET.id, event_id: "event-july-knockout", club_id: MOCK_CLUB.id,
     fighter_a_id: "f-suresh", fighter_b_id: "f-deepak", round_number: 2, bout_order: 4,
     winner_advances_to_bout_id: "bout-6", source_bout_a_id: "bout-1", source_bout_b_id: "bout-2",
     slot_a_type: "fighter", slot_b_type: "fighter", status: "scheduled",
@@ -205,7 +205,7 @@ export const MOCK_BOUTS: Bout[] = [
     fighter_a: F("f-suresh"), fighter_b: F("f-deepak"),
   },
   {
-    id: "bout-5", bracket_id: MOCK_BRACKET.id, event_id: null, club_id: MOCK_CLUB.id,
+    id: "bout-5", bracket_id: MOCK_BRACKET.id, event_id: "event-july-knockout", club_id: MOCK_CLUB.id,
     fighter_a_id: "f-rahul", fighter_b_id: "f-arjun", round_number: 2, bout_order: 5,
     winner_advances_to_bout_id: "bout-6", source_bout_a_id: "bout-3", source_bout_b_id: null,
     slot_a_type: "fighter", slot_b_type: "bye", status: "scheduled",
@@ -213,7 +213,7 @@ export const MOCK_BOUTS: Bout[] = [
     fighter_a: F("f-rahul"), fighter_b: F("f-arjun"),
   },
   {
-    id: "bout-6", bracket_id: MOCK_BRACKET.id, event_id: null, club_id: MOCK_CLUB.id,
+    id: "bout-6", bracket_id: MOCK_BRACKET.id, event_id: "event-july-knockout", club_id: MOCK_CLUB.id,
     fighter_a_id: null, fighter_b_id: null, round_number: 3, bout_order: 6,
     winner_advances_to_bout_id: null, source_bout_a_id: "bout-4", source_bout_b_id: "bout-5",
     slot_a_type: "winner_of", slot_b_type: "winner_of", status: "pending_fighters",
@@ -226,6 +226,7 @@ export const MOCK_BRACKETS: Bracket[] = [
   {
     ...MOCK_BRACKET,
     id: "bracket-elite-69",
+    event_id: "event-sparring-day",
     name: "Elite Male 69kg — Sparring Day",
     status: "published",
     scheduled_date: "2026-08-05",
@@ -235,6 +236,30 @@ export const MOCK_BRACKETS: Bracket[] = [
 ];
 
 export const MOCK_EVENTS: Event[] = [
+  {
+    id: "event-july-knockout",
+    name: "July Club Knockout",
+    date: "2026-07-18",
+    venue: "Mumbai Warriors Club Ring",
+    state_zone: "Maharashtra",
+    status: "published",
+    is_cross_club: false,
+    organizer_club_id: MOCK_CLUB.id,
+    organizer_user_id: MOCK_PROFILE.id,
+    created_at: "2026-07-01T00:00:00Z",
+  },
+  {
+    id: "event-sparring-day",
+    name: "Elite Sparring Day",
+    date: "2026-08-05",
+    venue: "Mumbai Warriors Club Ring",
+    state_zone: "Maharashtra",
+    status: "published",
+    is_cross_club: false,
+    organizer_club_id: MOCK_CLUB.id,
+    organizer_user_id: MOCK_PROFILE.id,
+    created_at: "2026-07-15T00:00:00Z",
+  },
   {
     id: "event-west-zone",
     name: "West Zone Inter-Club Championship 2026",

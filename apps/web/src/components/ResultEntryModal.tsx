@@ -7,6 +7,7 @@ import { recordBoutResult } from "@boutforge/api";
 import { boutResultSchema, BOUT_METHOD_LABELS } from "@boutforge/shared";
 import type { Bout, Fighter } from "@boutforge/shared";
 import { fighterFullName } from "@boutforge/shared";
+import { LoadingOverlay } from "@/components/LoadingOverlay";
 
 export function ResultEntryModal({
   bout,
@@ -54,6 +55,7 @@ export function ResultEntryModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <LoadingOverlay loading={loading} label="Saving result…">
       <div className="card max-w-md w-full mx-4">
         <h2 className="text-lg font-semibold text-navy mb-4">Enter Result</h2>
         <p className="text-sm text-gray-500 mb-4">
@@ -123,6 +125,7 @@ export function ResultEntryModal({
           </div>
         </form>
       </div>
+      </LoadingOverlay>
     </div>
   );
 }

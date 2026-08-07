@@ -8,6 +8,8 @@ import { canManageFighters, fighterSchema } from "@boutforge/shared";
 import type { ClubMember } from "@boutforge/shared";
 import { ClubSelector } from "@/components/ClubSelector";
 import Link from "next/link";
+import { LoadingOverlay } from "@/components/LoadingOverlay";
+import { usePendingLoads } from "@/hooks/usePendingLoads";
 
 export default function NewFighterPage() {
   const router = useRouter();
@@ -25,23 +27,36 @@ export default function NewFighterPage() {
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const { isPending, end } = usePendingLoads(1);
 
   useEffect(() => {
-    async function load() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
+    let active = true;
 
-      const clubs = await getUserClubs(supabase, user.id);
-      setMemberships(clubs);
-      if (clubs.length > 0) {
-        setSelectedClubId(clubs[0].club_id);
-        setCanCreate(canManageFighters(clubs[0].role));
+    async function load() {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const clubs = await getUserClubs(supabase, user.id);
+        if (!active) return;
+
+        setMemberships(clubs);
+        if (clubs.length > 0) {
+          setSelectedClubId(clubs[0].club_id);
+          setCanCreate(canManageFighters(clubs[0].role));
+        }
+      } finally {
+        if (active) end();
       }
     }
+
     load();
-  }, [supabase]);
+    return () => {
+      active = false;
+    };
+  }, [supabase, end]);
 
   function handleClubChange(clubId: string) {
     setSelectedClubId(clubId);
@@ -83,6 +98,10 @@ export default function NewFighterPage() {
   }
 
   return (
+    <LoadingOverlay
+      loading={isPending || loading}
+      label={loading ? "Saving fighter…" : "Loading…"}
+    >
     <div className="max-w-lg">
       <div className="mb-6">
         <Link href="/fighters" className="text-boxing text-sm hover:underline">
@@ -176,5 +195,6 @@ export default function NewFighterPage() {
         </button>
       </form>
     </div>
+    </LoadingOverlay>
   );
 }

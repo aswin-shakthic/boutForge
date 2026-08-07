@@ -5,6 +5,7 @@ import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { forgotPasswordSchema } from "@boutforge/shared";
 import { AuthLayout, AuthLink } from "@/components/AuthLayout";
 import { SupabaseConfigAlert } from "@/components/SupabaseConfigAlert";
+import { LoadingOverlay } from "@/components/LoadingOverlay";
 
 export default function ForgotPasswordPage() {
   const configured = isSupabaseConfigured();
@@ -49,6 +50,7 @@ export default function ForgotPasswordPage() {
           <AuthLink href="/login">Back to login</AuthLink>
         </div>
       ) : (
+        <LoadingOverlay loading={loading} label="Sending reset link…">
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
             <div className="bg-red-50 text-red-700 px-4 py-3 rounded-lg text-sm">
@@ -79,6 +81,7 @@ export default function ForgotPasswordPage() {
             <AuthLink href="/login">Back to login</AuthLink>
           </div>
         </form>
+        </LoadingOverlay>
       )}
     </AuthLayout>
   );

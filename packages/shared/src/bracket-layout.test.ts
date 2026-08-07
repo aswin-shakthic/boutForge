@@ -3,6 +3,7 @@ import {
   getBracketMatchMarginTop,
   getMatchGameLabel,
   getRoundShortLabel,
+  groupBracketsByEvent,
   groupBracketsForDisplay,
   organizeBoutsByRound,
 } from "./bracket-layout";
@@ -59,6 +60,7 @@ describe("groupBracketsForDisplay", () => {
         status: "published",
         scheduled_date: null,
         created_at: "2026-01-01",
+        event_id: "event-1",
         gender: "male",
         age_category_id: "1",
         weight_class_id: "1",
@@ -72,6 +74,7 @@ describe("groupBracketsForDisplay", () => {
         status: "published",
         scheduled_date: null,
         created_at: "2026-01-01",
+        event_id: "event-1",
         gender: "male",
         age_category_id: "1",
         weight_class_id: "2",
@@ -85,6 +88,7 @@ describe("groupBracketsForDisplay", () => {
         status: "published",
         scheduled_date: null,
         created_at: "2026-01-01",
+        event_id: "event-1",
         gender: "male",
         age_category_id: "2",
         weight_class_id: "3",
@@ -97,5 +101,57 @@ describe("groupBracketsForDisplay", () => {
     expect(groups[0].title).toBe("Elite");
     expect(groups[1].title).toBe("Youth");
     expect(groups[1].brackets).toHaveLength(1);
+  });
+});
+
+describe("groupBracketsByEvent", () => {
+  it("groups brackets by event with nested category sections", () => {
+    const groups = groupBracketsByEvent([
+      {
+        id: "a",
+        name: "Youth 52",
+        format: "progressive_knockout",
+        status: "published",
+        scheduled_date: null,
+        created_at: "2026-01-01",
+        event_id: "event-a",
+        gender: "male",
+        age_category_id: "1",
+        weight_class_id: "1",
+        age_category: { name: "Youth" },
+        weight_class: { name: "52 kg", gender: "male" },
+        event: {
+          id: "event-a",
+          name: "Spring Open",
+          date: "2026-03-01",
+          status: "published",
+        },
+      },
+      {
+        id: "b",
+        name: "Elite 60",
+        format: "progressive_knockout",
+        status: "published",
+        scheduled_date: null,
+        created_at: "2026-01-01",
+        event_id: "event-b",
+        gender: "male",
+        age_category_id: "2",
+        weight_class_id: "3",
+        age_category: { name: "Elite" },
+        weight_class: { name: "60 kg", gender: "male" },
+        event: {
+          id: "event-b",
+          name: "Winter Classic",
+          date: "2026-01-15",
+          status: "draft",
+        },
+      },
+    ]);
+
+    expect(groups).toHaveLength(2);
+    expect(groups[0].title).toBe("Spring Open");
+    expect(groups[0].sections).toHaveLength(1);
+    expect(groups[1].title).toBe("Winter Classic");
   });
 });

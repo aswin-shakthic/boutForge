@@ -1,15 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { LoadingOverlay } from "@/components/LoadingOverlay";
+import { usePendingLoads } from "@/hooks/usePendingLoads";
 import {
   assignFightersToFixtureSection,
   createBracket,
+  createEvent,
   createFixtureAgeCategory,
   createFixtureWeightClass,
   getAgeCategories,
+  getEvents,
   getFighters,
   getUserClubs,
   updateFixtureAgeCategory,
@@ -26,10 +30,12 @@ import {
   parseWeightInput,
   toggleSectionFighterSelection,
   pruneFixtureWizardState,
+  eventSchema,
 } from "@boutforge/shared";
 import type {
   AgeCategory,
   ClubMember,
+  Event,
   Fighter,
   FixtureFormat,
   Gender,
@@ -100,11 +106,21 @@ function toCategoryDraft(
   };
 }
 
-export default function NewFixturePage() {
+function NewFixtureWizard() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
   const [memberships, setMemberships] = useState<ClubMember[]>([]);
   const [hostClubId, setHostClubId] = useState("");
+  const [events, setEvents] = useState<Event[]>([]);
+  const [eventMode, setEventMode] = useState<"existing" | "create">("create");
+  const [selectedEventId, setSelectedEventId] = useState("");
+  const [eventForm, setEventForm] = useState({
+    name: "",
+    date: new Date().toISOString().slice(0, 10),
+    venue: "",
+    state_zone: "",
+  });
   const [competitionYear, setCompetitionYear] = useState(new Date().getFullYear());
   const [categories, setCategories] = useState<CategoryDraft[]>([]);
   const [weightClasses, setWeightClasses] = useState<WeightClassDraft[]>([]);
@@ -127,53 +143,125 @@ export default function NewFixturePage() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const { isPending, start, end } = usePendingLoads(1);
 
   useEffect(() => {
+    let active = true;
+
     async function load() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) return;
 
-      const clubs = await getUserClubs(supabase, user.id);
-      setMemberships(clubs);
-      if (clubs.length > 0) {
-        setHostClubId(clubs[0].club_id);
-        setSelectedClubIds(new Set([clubs[0].club_id]));
+        const clubs = await getUserClubs(supabase, user.id);
+        if (!active) return;
+
+        setMemberships(clubs);
+        if (clubs.length > 0) {
+          setHostClubId(clubs[0].club_id);
+          setSelectedClubIds(new Set([clubs[0].club_id]));
+        }
+      } finally {
+        if (active) end();
       }
     }
+
     load();
-  }, [supabase]);
+    return () => {
+      active = false;
+    };
+  }, [supabase, end]);
 
   useEffect(() => {
+    if (!hostClubId) return;
+
+    let active = true;
+    start();
+
     async function loadCategories() {
-      if (!hostClubId) return;
+      try {
+        const all = await getAgeCategories(supabase);
+        if (!active) return;
 
-      const all = await getAgeCategories(supabase);
-      const visible = all.filter(
-        (cat) => cat.club_id === null || cat.club_id === hostClubId
-      );
+        const visible = all.filter(
+          (cat) => cat.club_id === null || cat.club_id === hostClubId
+        );
 
-      setCategories((prev) => {
-        const additional = prev.filter((cat) => cat.sourceId === null);
-        const loaded = visible.map((cat) => toCategoryDraft(cat, competitionYear));
-        return [...loaded, ...additional];
-      });
+        setCategories((prev) => {
+          const additional = prev.filter((cat) => cat.sourceId === null);
+          const loaded = visible.map((cat) => toCategoryDraft(cat, competitionYear));
+          return [...loaded, ...additional];
+        });
+      } finally {
+        if (active) end();
+      }
     }
+
     loadCategories();
-  }, [supabase, hostClubId]);
+    return () => {
+      active = false;
+    };
+  }, [supabase, hostClubId, competitionYear, start, end]);
 
   useEffect(() => {
-    async function loadFighters() {
-      if (selectedClubIds.size === 0) {
-        setFighters([]);
-        return;
+    if (!hostClubId) return;
+
+    let active = true;
+    start();
+
+    async function loadEvents() {
+      try {
+        const all = await getEvents(supabase);
+        if (!active) return;
+
+        const open = all.filter((e) => e.status === "draft" || e.status === "published");
+        setEvents(open);
+
+        const fromUrl = searchParams.get("eventId");
+        if (fromUrl && open.some((e) => e.id === fromUrl)) {
+          setSelectedEventId(fromUrl);
+          setEventMode("existing");
+        } else if (open.length > 0 && !selectedEventId) {
+          setSelectedEventId(open[0].id);
+          setEventMode("existing");
+        }
+      } finally {
+        if (active) end();
       }
-      const data = await getFighters(supabase, Array.from(selectedClubIds));
-      setFighters(data);
     }
+
+    loadEvents();
+    return () => {
+      active = false;
+    };
+  }, [supabase, hostClubId, searchParams, selectedEventId, start, end]);
+
+  useEffect(() => {
+    if (selectedClubIds.size === 0) {
+      setFighters([]);
+      return;
+    }
+
+    let active = true;
+    start();
+
+    async function loadFighters() {
+      try {
+        const data = await getFighters(supabase, Array.from(selectedClubIds));
+        if (!active) return;
+        setFighters(data);
+      } finally {
+        if (active) end();
+      }
+    }
+
     loadFighters();
-  }, [supabase, selectedClubIds]);
+    return () => {
+      active = false;
+    };
+  }, [supabase, selectedClubIds, start, end]);
 
   const sections = useMemo(() => {
     return weightClasses.map((wc) => {
@@ -350,7 +438,53 @@ export default function NewFixturePage() {
       }
       return next;
     });
-    setStep(4);
+    setStep(5);
+  }
+
+  async function resolveEventId(): Promise<string> {
+    const participatingClubIds = Array.from(selectedClubIds);
+    if (participatingClubIds.length === 0 && hostClubId) {
+      participatingClubIds.push(hostClubId);
+    }
+
+    if (eventMode === "create") {
+      const defaultName =
+        eventForm.name.trim() ||
+        `${memberships.find((m) => m.club_id === hostClubId)?.club?.name ?? "Club"} ${competitionYear} Tournament`;
+      const parsed = eventSchema.safeParse({
+        name: defaultName,
+        date: eventForm.date || new Date().toISOString().slice(0, 10),
+        venue: eventForm.venue || undefined,
+        state_zone: eventForm.state_zone || undefined,
+        is_cross_club: participatingClubIds.length > 1,
+      });
+      if (!parsed.success) {
+        throw new Error(parsed.error.errors[0]?.message ?? "Invalid event details");
+      }
+      const event = await createEvent(
+        supabase,
+        parsed.data,
+        participatingClubIds,
+        hostClubId
+      );
+      return event.id;
+    }
+
+    if (selectedEventId) return selectedEventId;
+
+    if (events.length > 0) return events[0].id;
+
+    const event = await createEvent(
+      supabase,
+      {
+        name: `Tournament ${competitionYear}`,
+        date: new Date().toISOString().slice(0, 10),
+        is_cross_club: participatingClubIds.length > 1,
+      },
+      participatingClubIds,
+      hostClubId
+    );
+    return event.id;
   }
 
   async function handlePublish() {
@@ -360,6 +494,12 @@ export default function NewFixturePage() {
     setError("");
 
     try {
+      const eventId = await resolveEventId();
+      const eventDate =
+        eventMode === "existing"
+          ? events.find((e) => e.id === eventId)?.date
+          : eventForm.date;
+
       const categoryMap = new Map<string, string>();
       for (const cat of categories) {
         if (cat.sourceId) {
@@ -418,6 +558,8 @@ export default function NewFixturePage() {
           age_category_id: ageCategoryId,
           weight_class_id: weightClassId,
           gender: section.weightClass.gender,
+          event_id: eventId,
+          scheduled_date: eventDate ?? undefined,
         });
 
         if (!firstBracketId) firstBracketId = bracket.id;
@@ -427,7 +569,7 @@ export default function NewFixturePage() {
         throw new Error("No brackets were created.");
       }
 
-      router.push("/fixtures");
+      router.push(`/events/${eventId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create fixture");
       setLoading(false);
@@ -435,6 +577,7 @@ export default function NewFixturePage() {
   }
 
   const stepLabels = [
+    "Event",
     "Categories",
     "Weight classes",
     "Assign fighters",
@@ -443,6 +586,10 @@ export default function NewFixturePage() {
   ];
 
   return (
+    <LoadingOverlay
+      loading={isPending || loading}
+      label={loading ? "Publishing fixtures…" : "Loading fixture wizard…"}
+    >
     <div className="max-w-3xl space-y-6">
       <div>
         <Link href="/fixtures" className="text-boxing text-sm hover:underline">
@@ -450,7 +597,7 @@ export default function NewFixturePage() {
         </Link>
         <h1 className="text-2xl font-bold text-navy mt-2">Create Fixture</h1>
         <p className="text-sm text-gray-500 mt-1">
-          Define age categories by birth year, add weight classes, then assign fighters.
+          Link brackets to an event, then define categories, weight classes, and assign fighters.
         </p>
         <div className="flex gap-2 mt-4">
           {stepLabels.map((label, i) => (
@@ -474,7 +621,107 @@ export default function NewFixturePage() {
 
       {step === 1 && (
         <div className="card space-y-4">
-          <h2 className="font-semibold text-navy">Step 1 — Age categories (birth year)</h2>
+          <h2 className="font-semibold text-navy">Step 1 — Event</h2>
+          <p className="text-sm text-gray-500">
+            Every fixture must belong to an event. Select an existing event or create a new one.
+          </p>
+
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="radio"
+                checked={eventMode === "existing"}
+                onChange={() => setEventMode("existing")}
+                disabled={events.length === 0}
+              />
+              Use existing event
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="radio"
+                checked={eventMode === "create"}
+                onChange={() => setEventMode("create")}
+              />
+              Create new event
+            </label>
+          </div>
+
+          {eventMode === "existing" ? (
+            <div>
+              <label className="block text-sm font-medium mb-1">Event</label>
+              {events.length === 0 ? (
+                <p className="text-sm text-gray-500">
+                  No events yet — choose &quot;Create new event&quot; below.
+                </p>
+              ) : (
+                <select
+                  className="input-field"
+                  value={selectedEventId}
+                  onChange={(e) => setSelectedEventId(e.target.value)}
+                >
+                  {events.map((event) => (
+                    <option key={event.id} value={event.id}>
+                      {event.name} · {event.date} · {event.status}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <label className="block text-sm font-medium mb-1">Event name</label>
+                <input
+                  className="input-field"
+                  placeholder={`${competitionYear} Club Championship`}
+                  value={eventForm.name}
+                  onChange={(e) => setEventForm({ ...eventForm, name: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Event date</label>
+                <input
+                  type="date"
+                  className="input-field"
+                  value={eventForm.date}
+                  onChange={(e) => setEventForm({ ...eventForm, date: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Venue</label>
+                <input
+                  className="input-field"
+                  placeholder="Optional"
+                  value={eventForm.venue}
+                  onChange={(e) => setEventForm({ ...eventForm, venue: e.target.value })}
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-sm font-medium mb-1">State / zone</label>
+                <input
+                  className="input-field"
+                  placeholder="Optional"
+                  value={eventForm.state_zone}
+                  onChange={(e) => setEventForm({ ...eventForm, state_zone: e.target.value })}
+                />
+              </div>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setStep(2)}
+            className="btn-primary"
+            disabled={eventMode === "existing" && events.length === 0}
+          >
+            Next — Categories
+          </button>
+        </div>
+      )}
+
+      {step === 2 && (
+        <div className="card space-y-4">
+          <h2 className="font-semibold text-navy">Step 2 — Age categories (birth year)</h2>
           <div>
             <label className="block text-sm font-medium mb-1">Competition year</label>
             <input
@@ -602,20 +849,25 @@ export default function NewFixturePage() {
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setStep(2)}
-            className="btn-primary"
-            disabled={categories.length === 0}
-          >
-            Next — Weight classes
-          </button>
+          <div className="flex gap-3">
+            <button type="button" onClick={() => setStep(1)} className="btn-secondary">
+              Back
+            </button>
+            <button
+              type="button"
+              onClick={() => setStep(3)}
+              className="btn-primary"
+              disabled={categories.length === 0}
+            >
+              Next — Weight classes
+            </button>
+          </div>
         </div>
       )}
 
-      {step === 2 && (
+      {step === 3 && (
         <div className="card space-y-4">
-          <h2 className="font-semibold text-navy">Step 2 — Weight classes per category</h2>
+          <h2 className="font-semibold text-navy">Step 3 — Weight classes per category</h2>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
@@ -727,12 +979,12 @@ export default function NewFixturePage() {
           )}
 
           <div className="flex gap-3">
-            <button type="button" onClick={() => setStep(1)} className="btn-secondary">
+            <button type="button" onClick={() => setStep(2)} className="btn-secondary">
               Back
             </button>
             <button
               type="button"
-              onClick={() => setStep(3)}
+              onClick={() => setStep(4)}
               className="btn-primary"
               disabled={weightClasses.length === 0}
             >
@@ -742,9 +994,9 @@ export default function NewFixturePage() {
         </div>
       )}
 
-      {step === 3 && (
+      {step === 4 && (
         <div className="card space-y-4">
-          <h2 className="font-semibold text-navy">Step 3 — Assign fighters to sections</h2>
+          <h2 className="font-semibold text-navy">Step 4 — Assign fighters to sections</h2>
 
           <div>
             <label className="block text-sm font-medium mb-2">Participating clubs</label>
@@ -821,7 +1073,7 @@ export default function NewFixturePage() {
           </div>
 
           <div className="flex gap-3">
-            <button type="button" onClick={() => setStep(2)} className="btn-secondary">
+            <button type="button" onClick={() => setStep(3)} className="btn-secondary">
               Back
             </button>
             <button
@@ -837,9 +1089,9 @@ export default function NewFixturePage() {
         </div>
       )}
 
-      {step === 4 && readySections.length > 0 && (
+      {step === 5 && readySections.length > 0 && (
         <div className="card space-y-6">
-          <h2 className="font-semibold text-navy">Step 4 — Bracket format</h2>
+          <h2 className="font-semibold text-navy">Step 5 — Bracket format</h2>
           <p className="text-sm text-gray-500">
             Configure format for each section with at least 2 fighters.
           </p>
@@ -918,19 +1170,19 @@ export default function NewFixturePage() {
           })}
 
           <div className="flex gap-3">
-            <button type="button" onClick={() => setStep(3)} className="btn-secondary">
+            <button type="button" onClick={() => setStep(4)} className="btn-secondary">
               Back
             </button>
-            <button type="button" onClick={() => setStep(5)} className="btn-primary">
+            <button type="button" onClick={() => setStep(6)} className="btn-primary">
               Next — Preview all brackets
             </button>
           </div>
         </div>
       )}
 
-      {step === 5 && readySections.length > 0 && (
+      {step === 6 && readySections.length > 0 && (
         <div className="card space-y-6">
-          <h2 className="font-semibold text-navy">Step 5 — Review & publish</h2>
+          <h2 className="font-semibold text-navy">Step 6 — Review & publish</h2>
           <p className="text-sm text-gray-500">
             Publishing {readySections.length} bracket
             {readySections.length === 1 ? "" : "s"}.
@@ -997,7 +1249,7 @@ export default function NewFixturePage() {
           })}
 
           <div className="flex gap-3">
-            <button type="button" onClick={() => setStep(4)} className="btn-secondary">
+            <button type="button" onClick={() => setStep(5)} className="btn-secondary">
               Back
             </button>
             <button
@@ -1012,5 +1264,14 @@ export default function NewFixturePage() {
         </div>
       )}
     </div>
+    </LoadingOverlay>
+  );
+}
+
+export default function NewFixturePage() {
+  return (
+    <Suspense fallback={<div className="text-sm text-gray-500">Loading...</div>}>
+      <NewFixtureWizard />
+    </Suspense>
   );
 }

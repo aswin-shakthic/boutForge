@@ -7,6 +7,7 @@ import { resolveAuthDestination } from "@boutforge/api";
 import { loginSchema } from "@boutforge/shared";
 import { AuthLayout, AuthLink } from "@/components/AuthLayout";
 import { SupabaseConfigAlert } from "@/components/SupabaseConfigAlert";
+import { LoadingOverlay } from "@/components/LoadingOverlay";
 
 function LoginForm() {
   const router = useRouter();
@@ -56,6 +57,7 @@ function LoginForm() {
 
   return (
     <AuthLayout title="Welcome back" subtitle="Sign in to your club account">
+      <LoadingOverlay loading={loading} label="Signing in…">
       <SupabaseConfigAlert />
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
@@ -101,6 +103,7 @@ function LoginForm() {
           <AuthLink href="/signup">Sign up</AuthLink>
         </div>
       </form>
+      </LoadingOverlay>
     </AuthLayout>
   );
 }

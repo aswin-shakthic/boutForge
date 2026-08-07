@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { LoadingOverlay } from "@/components/LoadingOverlay";
+import { usePendingLoads } from "@/hooks/usePendingLoads";
 import { createClient } from "@/lib/supabase/client";
 import { createEvent, getAllClubs } from "@boutforge/api";
 import { eventSchema } from "@boutforge/shared";
@@ -22,10 +24,23 @@ export default function NewEventPage() {
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const { isPending, end } = usePendingLoads(1);
 
   useEffect(() => {
-    getAllClubs(supabase).then(setClubs);
-  }, [supabase]);
+    let active = true;
+
+    getAllClubs(supabase)
+      .then((data) => {
+        if (active) setClubs(data);
+      })
+      .finally(() => {
+        if (active) end();
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [supabase, end]);
 
   function toggleClub(id: string) {
     const next = new Set(selectedClubs);
@@ -58,6 +73,10 @@ export default function NewEventPage() {
   }
 
   return (
+    <LoadingOverlay
+      loading={isPending || loading}
+      label={loading ? "Creating event…" : "Loading clubs…"}
+    >
     <div className="max-w-lg space-y-6">
       <div>
         <Link href="/events" className="text-boxing text-sm hover:underline">
@@ -134,5 +153,6 @@ export default function NewEventPage() {
         </button>
       </form>
     </div>
+    </LoadingOverlay>
   );
 }

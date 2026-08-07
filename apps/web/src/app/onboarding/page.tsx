@@ -11,6 +11,8 @@ import {
 } from "@boutforge/api";
 import { AuthLayout } from "@/components/AuthLayout";
 import { SupabaseConfigAlert } from "@/components/SupabaseConfigAlert";
+import { LoadingOverlay } from "@/components/LoadingOverlay";
+import { PageLoader } from "@/components/PageLoader";
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -99,13 +101,14 @@ export default function OnboardingPage() {
   if (loading) {
     return (
       <AuthLayout title="Setting up" subtitle="Preparing your account">
-        <p className="text-gray-500 text-sm text-center">Loading…</p>
+        <PageLoader label="Preparing your account…" inline />
       </AuthLayout>
     );
   }
 
   return (
     <AuthLayout title="Finish setup" subtitle="Create or join a club to continue">
+      <LoadingOverlay loading={submitting} label="Setting up your club…">
       <SupabaseConfigAlert />
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
@@ -171,6 +174,7 @@ export default function OnboardingPage() {
           {submitting ? "Saving…" : "Continue to dashboard"}
         </button>
       </form>
+      </LoadingOverlay>
     </AuthLayout>
   );
 }

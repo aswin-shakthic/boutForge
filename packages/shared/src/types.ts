@@ -134,7 +134,7 @@ export interface EventClub {
 export interface Bracket {
   id: string;
   club_id: string;
-  event_id: string | null;
+  event_id: string;
   name: string;
   format: FixtureFormat;
   age_category_id: string | null;
