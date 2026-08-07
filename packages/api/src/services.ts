@@ -12,6 +12,7 @@ import {
   buildDefaultEventCategoryConfig,
   attachPlatformWeightIds,
   parseEventCategoryConfig,
+  ensureCompleteEventCategoryConfig,
   buildPlatformCategoryCatalog,
   findPlatformWeightClass,
   categoryResolveCacheKey,
@@ -852,9 +853,6 @@ export async function getEventCategoryConfig(
 
   if (!data) return null;
 
-  const parsed = parseEventCategoryConfig(data.category_config);
-  if (parsed) return parsed;
-
   const competitionYear =
     data.competition_year ??
     (data.date ? new Date(data.date).getFullYear() : new Date().getFullYear());
@@ -862,6 +860,11 @@ export async function getEventCategoryConfig(
     getAgeCategories(supabase),
     getWeightClasses(supabase),
   ]);
+
+  const parsed = parseEventCategoryConfig(data.category_config);
+  if (parsed) {
+    return ensureCompleteEventCategoryConfig(parsed, categories, weights);
+  }
 
   return attachPlatformWeightIds(
     buildDefaultEventCategoryConfig(competitionYear, categories),

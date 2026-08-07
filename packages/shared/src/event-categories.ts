@@ -183,6 +183,84 @@ export function attachPlatformWeightIds(
   return { ...config, categories, weight_classes };
 }
 
+/** Merge saved/partial configs with current templates (e.g. add Junior to legacy 3-category events). */
+export function ensureCompleteEventCategoryConfig(
+  config: EventCategoryConfig,
+  platformCategories: AgeCategory[] = [],
+  platformWeights: WeightClass[] = []
+): EventCategoryConfig {
+  const baseline = attachPlatformWeightIds(
+    buildDefaultEventCategoryConfig(config.competition_year, platformCategories),
+    platformCategories,
+    platformWeights
+  );
+
+  const savedByCode = new Map(config.categories.map((c) => [c.code, c]));
+  const templateCodes = new Set(baseline.categories.map((c) => c.code));
+
+  const categories = baseline.categories.map((base) => {
+    const saved = savedByCode.get(base.code);
+    if (!saved) return base;
+    return {
+      ...base,
+      birth_year_from: saved.birth_year_from,
+      birth_year_to: saved.birth_year_to,
+      enabled: saved.enabled,
+      name: saved.name,
+    };
+  });
+
+  for (const saved of config.categories) {
+    if (!templateCodes.has(saved.code)) {
+      categories.push(saved);
+    }
+  }
+
+  const savedWeightByKey = new Map(
+    config.weight_classes.map((wc) => [
+      weightClassLookupKey(wc.category_code, wc.gender, wc.min_weight_kg, wc.max_weight_kg),
+      wc,
+    ])
+  );
+
+  const weight_classes = baseline.weight_classes.map((base) => {
+    const saved = savedWeightByKey.get(
+      weightClassLookupKey(base.category_code, base.gender, base.min_weight_kg, base.max_weight_kg)
+    );
+    if (!saved) return base;
+    return {
+      ...base,
+      name: saved.name,
+      enabled: saved.enabled,
+      min_weight_kg: saved.min_weight_kg,
+      max_weight_kg: saved.max_weight_kg,
+    };
+  });
+
+  const baselineWeightKeys = new Set(
+    baseline.weight_classes.map((wc) =>
+      weightClassLookupKey(wc.category_code, wc.gender, wc.min_weight_kg, wc.max_weight_kg)
+    )
+  );
+  for (const saved of config.weight_classes) {
+    const key = weightClassLookupKey(
+      saved.category_code,
+      saved.gender,
+      saved.min_weight_kg,
+      saved.max_weight_kg
+    );
+    if (!baselineWeightKeys.has(key)) {
+      weight_classes.push(saved);
+    }
+  }
+
+  return {
+    competition_year: config.competition_year,
+    categories,
+    weight_classes,
+  };
+}
+
 export function parseEventCategoryConfig(raw: unknown): EventCategoryConfig | null {
   if (!raw || typeof raw !== "object") return null;
   const value = raw as EventCategoryConfig;

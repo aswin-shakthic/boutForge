@@ -2,7 +2,8 @@
 
 INSERT INTO age_categories (id, name, code, min_age, max_age, is_custom, club_id) VALUES
   ('a0000000-0000-0000-0000-000000000001', 'Sub-Junior', 'sub_junior', 13, 14, false, null),
-  ('a0000000-0000-0000-0000-000000000002', 'Youth', 'youth', 15, 18, false, null),
+  ('a0000000-0000-0000-0000-000000000004', 'Junior', 'junior', 15, 16, false, null),
+  ('a0000000-0000-0000-0000-000000000002', 'Youth', 'youth', 17, 18, false, null),
   ('a0000000-0000-0000-0000-000000000003', 'Elite', 'elite', 19, 40, false, null);
 
 -- Elite Male weight classes

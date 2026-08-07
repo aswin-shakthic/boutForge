@@ -15,6 +15,7 @@ import {
   getEvents,
   getFighters,
   getUserClubs,
+  getWeightClasses,
   resolveFixtureCategoryIdsBatch,
   saveEventCategoryConfig,
 } from "@boutforge/api";
@@ -24,20 +25,20 @@ import {
   generateBracketBouts,
   getFighterClubDisplayName,
   fixtureSectionKey,
-  resolveCategoryBirthYears,
   eligibleFightersForSection,
   getReadyFixtureSections,
   parseWeightInput,
   toggleSectionFighterSelection,
   pruneFixtureWizardState,
   eventSchema,
+  attachPlatformWeightIds,
+  buildDefaultEventCategoryConfig,
   configToCategoryDrafts,
   configToWeightClassDrafts,
   eventConfigFromWizardState,
   seedWeightClassDrafts,
 } from "@boutforge/shared";
 import type {
-  AgeCategory,
   ClubMember,
   Event,
   Fighter,
@@ -94,28 +95,6 @@ function defaultSectionConfig(section: {
     name: defaultSectionName(section),
     byeFighterId: null,
   };
-}
-
-function toCategoryDraft(
-  category: AgeCategory,
-  competitionYear: number
-): CategoryDraft {
-  const years = resolveCategoryBirthYears(category, competitionYear);
-  return {
-    id: category.id,
-    sourceId: category.id,
-    code: category.code,
-    name: category.name,
-    birth_year_from: years.birth_year_from,
-    birth_year_to: years.birth_year_to,
-    isDefault: !category.is_custom && category.club_id === null,
-  };
-}
-
-function applyDefaultWeightClasses(categories: CategoryDraft[]): WeightClassDraft[] {
-  return seedWeightClassDrafts(
-    categories.map((c) => ({ id: c.id, code: c.code }))
-  );
 }
 
 function NewFixtureWizard() {
@@ -206,18 +185,24 @@ function NewFixtureWizard() {
           return;
         }
 
-        const all = await getAgeCategories(supabase);
+        const [all, platformWeights] = await Promise.all([
+          getAgeCategories(supabase),
+          getWeightClasses(supabase),
+        ]);
         if (!active) return;
 
-        const loaded = all
-          .filter((cat) => cat.club_id === null)
-          .map((cat) => toCategoryDraft(cat, competitionYear));
+        const config = attachPlatformWeightIds(
+          buildDefaultEventCategoryConfig(competitionYear, all),
+          all,
+          platformWeights
+        );
 
         setCategories((prev) => {
           const additional = prev.filter((cat) => cat.sourceId === null);
+          const loaded = configToCategoryDrafts(config);
           return [...loaded, ...additional];
         });
-        setWeightClasses(applyDefaultWeightClasses(loaded));
+        setWeightClasses(configToWeightClassDrafts(config));
       } finally {
         if (active) end();
       }
@@ -514,7 +499,9 @@ function NewFixtureWizard() {
 
   function goToWeightStep() {
     setWeightClasses((prev) =>
-      prev.length === 0 ? applyDefaultWeightClasses(categories) : prev
+      prev.length === 0
+        ? seedWeightClassDrafts(categories.map((c) => ({ id: c.id, code: c.code })))
+        : prev
     );
     setStep(3);
   }
