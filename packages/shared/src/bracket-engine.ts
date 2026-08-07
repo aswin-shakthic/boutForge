@@ -1,4 +1,4 @@
-import type { BracketPreviewBout, FighterInput, FixtureFormat } from "./types";
+import type { BoutStatus, BracketPreviewBout, FighterInput, FixtureFormat } from "./types";
 
 interface PairingScore {
   fighterAId: string;
@@ -223,6 +223,26 @@ export function generateRoundRobinBouts(
   }
 
   return bouts;
+}
+
+export function resolveInitialBoutStatus(preview: BracketPreviewBout): BoutStatus {
+  if (preview.slot_a_type === "winner_of" || preview.slot_b_type === "winner_of") {
+    return "pending_fighters";
+  }
+
+  const hasFighterA = preview.slot_a_type === "fighter" && preview.fighter_a_id;
+  const hasFighterB =
+    preview.slot_b_type === "fighter"
+      ? Boolean(preview.fighter_b_id)
+      : preview.slot_b_type === "bye"
+        ? Boolean(preview.fighter_b_id)
+        : false;
+
+  if (hasFighterA && (hasFighterB || preview.slot_b_type === "bye")) {
+    return "scheduled";
+  }
+
+  return "pending_fighters";
 }
 
 export function generateBracketBouts(

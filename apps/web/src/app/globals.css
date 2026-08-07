@@ -124,7 +124,7 @@ body {
   }
 
   .bracket-fixture-row {
-    @apply flex h-9 border-b border-gray-300 last:border-b-0;
+    @apply flex min-h-9 border-b border-gray-300 last:border-b-0;
   }
 
   .bracket-fixture-name {

@@ -24,11 +24,22 @@ export default async function FixtureDetailPage({
     if (bout.fighter_b?.club_id) poolClubIds.add(bout.fighter_b.club_id);
   }
 
+  if (bracket.event_id) {
+    const { data: eventClubs } = await supabase
+      .from("event_clubs")
+      .select("club_id")
+      .eq("event_id", bracket.event_id);
+    for (const row of eventClubs ?? []) {
+      poolClubIds.add(row.club_id);
+    }
+  }
+
   const fighters =
     poolClubIds.size > 0
       ? await getFighters(supabase, Array.from(poolClubIds), {
           age_category_id: bracket.age_category_id ?? undefined,
           gender: bracket.gender ?? undefined,
+          weight_class_id: bracket.weight_class_id ?? undefined,
         })
       : [];
   const canRecord = membership ? canRecordResults(membership.role) : false;

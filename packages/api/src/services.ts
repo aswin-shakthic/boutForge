@@ -6,6 +6,7 @@ import {
   ageRangeFromBirthYears,
   dobFromBirthYear,
   generateBracketBouts,
+  resolveInitialBoutStatus,
   getImportableClubLabel,
   parseBirthYear,
   resolveImportableClub,
@@ -648,12 +649,7 @@ export async function createBracket(
   const createdBouts: Bout[] = [];
 
   for (const preview of previewBouts) {
-    const status =
-      preview.slot_a_type === "fighter" && preview.slot_b_type === "fighter"
-        ? "scheduled"
-        : preview.slot_b_type === "bye" && preview.fighter_b_id
-          ? "pending_fighters"
-          : "pending_fighters";
+    const status = resolveInitialBoutStatus(preview);
 
     const { data: bout, error } = await supabase
       .from("bouts")
@@ -714,6 +710,89 @@ export async function getBracketsByEvent(
   return (data ?? []) as BracketListItem[];
 }
 
+export type EventBracketRosterSection = {
+  bracketId: string;
+  bracketName: string;
+  title: string;
+  fighters: Fighter[];
+};
+
+export async function getEventBracketRosters(
+  supabase: SupabaseClient,
+  eventId: string
+): Promise<EventBracketRosterSection[]> {
+  const brackets = await getBracketsByEvent(supabase, eventId);
+  if (brackets.length === 0) return [];
+
+  const bracketIds = brackets.map((b) => b.id);
+
+  const [{ data: bouts }, { data: bracketRows }] = await Promise.all([
+    supabase
+      .from("bouts")
+      .select("bracket_id, fighter_a_id, fighter_b_id, slot_a_type, slot_b_type")
+      .in("bracket_id", bracketIds)
+      .eq("round_number", 1),
+    supabase.from("brackets").select("id, bye_fighter_id").in("id", bracketIds),
+  ]);
+
+  const fighterIdsByBracket = new Map<string, Set<string>>();
+  for (const bracketId of bracketIds) {
+    fighterIdsByBracket.set(bracketId, new Set());
+  }
+
+  for (const bout of bouts ?? []) {
+    const ids = fighterIdsByBracket.get(bout.bracket_id);
+    if (!ids) continue;
+    if (bout.slot_a_type === "fighter" && bout.fighter_a_id) ids.add(bout.fighter_a_id);
+    if (bout.slot_b_type === "fighter" && bout.fighter_b_id) ids.add(bout.fighter_b_id);
+  }
+
+  for (const row of bracketRows ?? []) {
+    if (row.bye_fighter_id) {
+      fighterIdsByBracket.get(row.id)?.add(row.bye_fighter_id);
+    }
+  }
+
+  const allFighterIds = [
+    ...new Set([...fighterIdsByBracket.values()].flatMap((set) => [...set])),
+  ];
+
+  const fighterMap = new Map<string, Fighter>();
+  if (allFighterIds.length > 0) {
+    const { data: fighters } = await supabase
+      .from("fighters")
+      .select(
+        "*, age_category:age_categories(*), weight_class:weight_classes(*), club:clubs(id, name)"
+      )
+      .in("id", allFighterIds);
+
+    for (const fighter of fighters ?? []) {
+      fighterMap.set(fighter.id, fighter as Fighter);
+    }
+  }
+
+  return brackets.map((bracket) => {
+    const ids = fighterIdsByBracket.get(bracket.id) ?? new Set();
+    const sectionFighters = [...ids]
+      .map((id) => fighterMap.get(id))
+      .filter((fighter): fighter is Fighter => Boolean(fighter))
+      .sort(
+        (a, b) =>
+          a.last_name.localeCompare(b.last_name) ||
+          a.first_name.localeCompare(b.first_name)
+      );
+
+    return {
+      bracketId: bracket.id,
+      bracketName: bracket.name,
+      title: `${bracket.age_category?.name ?? "Category"} · ${
+        bracket.gender ?? bracket.weight_class?.gender ?? ""
+      } · ${bracket.weight_class?.name ?? "Weight class"}`,
+      fighters: sectionFighters,
+    };
+  });
+}
+
 export async function getBrackets(
   supabase: SupabaseClient,
   clubId: string
@@ -740,14 +819,16 @@ export async function getBracketWithBouts(
 
   const { data: bouts } = await supabase
     .from("bouts")
-    .select("*, fighter_a:fighters!bouts_fighter_a_id_fkey(*), fighter_b:fighters!bouts_fighter_b_id_fkey(*), result:bout_results(*)")
+    .select(
+      "*, fighter_a:fighters!bouts_fighter_a_id_fkey(*, club:clubs(id, name)), fighter_b:fighters!bouts_fighter_b_id_fkey(*, club:clubs(id, name)), result:bout_results(*)"
+    )
     .eq("bracket_id", bracketId)
     .order("round_number")
     .order("bout_order");
 
   return {
     bracket: bracket as Bracket,
-    bouts: (bouts ?? []) as Bout[],
+    bouts: (bouts ?? []).map((row) => normalizeBoutEmbeds(row as Record<string, unknown>)),
   };
 }
 

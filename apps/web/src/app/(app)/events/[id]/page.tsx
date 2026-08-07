@@ -1,7 +1,13 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { getBracketsByEvent } from "@boutforge/api";
-import { canDeleteEvent as checkCanDeleteEvent, canEditEvent as checkCanEditEvent } from "@boutforge/shared";
+import { getBracketsByEvent, getEventBracketRosters } from "@boutforge/api";
+import {
+  canDeleteEvent as checkCanDeleteEvent,
+  canEditEvent as checkCanEditEvent,
+  fighterFullName,
+  getFighterClubDisplayName,
+  groupBracketsForDisplay,
+} from "@boutforge/shared";
 import { getAppContext } from "@/lib/app-context";
 import { EventCategoriesEditor } from "@/components/EventCategoriesEditor";
 import { DeleteEventButton } from "@/components/DeleteEventButton";
@@ -29,7 +35,13 @@ export default async function EventDetailPage({
 
   if (!event) return <p>Event not found</p>;
 
-  const brackets = await getBracketsByEvent(supabase, id);
+  const [brackets, rosters] = await Promise.all([
+    getBracketsByEvent(supabase, id),
+    getEventBracketRosters(supabase, id),
+  ]);
+  const rosterByBracketId = new Map(rosters.map((roster) => [roster.bracketId, roster]));
+  const bracketSections = groupBracketsForDisplay(brackets);
+
   const accessContext = {
     isPlatformAdmin: profile?.is_platform_admin,
     userId: user.id,
@@ -99,14 +111,82 @@ export default async function EventDetailPage({
           <h2 className="font-semibold text-navy mb-3">Participating Clubs</h2>
           <div className="space-y-2">
             {(event.event_clubs ?? []).map((ec: EventClubRow) => (
-                <div
-                  key={ec.id}
-                  className="border border-gray-100 rounded-lg p-3 text-sm"
-                >
-                  {ec.club?.name}
-                </div>
-              ))}
+              <div
+                key={ec.id}
+                className="border border-gray-100 rounded-lg p-3 text-sm"
+              >
+                {ec.club?.name}
+              </div>
+            ))}
           </div>
+        </div>
+
+        <div>
+          <h2 className="font-semibold text-navy mb-3">Registered Fighters</h2>
+          {bracketSections.length === 0 ? (
+            <p className="text-sm text-gray-500">
+              No fixtures yet. Add brackets to register fighters by category and weight class.
+            </p>
+          ) : (
+            <div className="space-y-6">
+              {bracketSections.map((section) => {
+                const sectionFighters = new Map<
+                  string,
+                  { id: string; name: string; club: string }
+                >();
+
+                for (const bracket of section.brackets) {
+                  const roster = rosterByBracketId.get(bracket.id);
+                  for (const fighter of roster?.fighters ?? []) {
+                    sectionFighters.set(fighter.id, {
+                      id: fighter.id,
+                      name: fighterFullName(fighter),
+                      club: getFighterClubDisplayName(fighter),
+                    });
+                  }
+                }
+
+                const fighters = [...sectionFighters.values()].sort((a, b) =>
+                  a.name.localeCompare(b.name)
+                );
+
+                return (
+                  <section
+                    key={section.key}
+                    className="border border-gray-100 rounded-lg p-4 space-y-3"
+                  >
+                    <div>
+                      <h3 className="font-medium text-navy">{section.title}</h3>
+                      <p className="text-xs text-gray-500 mt-0.5 capitalize">{section.subtitle}</p>
+                    </div>
+                    {fighters.length === 0 ? (
+                      <p className="text-sm text-gray-400">No fighters assigned yet.</p>
+                    ) : (
+                      <ul className="divide-y divide-gray-100">
+                        {fighters.map((fighter) => (
+                          <li
+                            key={fighter.id}
+                            className="flex flex-col gap-0.5 py-2 sm:flex-row sm:items-center sm:justify-between"
+                          >
+                            <span className="text-sm font-medium text-navy">{fighter.name}</span>
+                            <span className="text-xs text-gray-500">{fighter.club}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {section.brackets.length === 1 ? (
+                      <Link
+                        href={`/fixtures/${section.brackets[0].id}`}
+                        className="inline-flex text-xs text-boxing hover:underline"
+                      >
+                        View bracket
+                      </Link>
+                    ) : null}
+                  </section>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <div>
@@ -118,25 +198,37 @@ export default async function EventDetailPage({
               No brackets yet. Use &quot;Add brackets&quot; to create fixtures for this event.
             </p>
           ) : (
-            <div className="space-y-2">
-              {brackets.map((bracket) => (
-                <Link
-                  key={bracket.id}
-                  href={`/fixtures/${bracket.id}`}
-                  className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border border-gray-100 rounded-lg p-3 text-sm hover:border-boxing/30 hover:bg-gray-50"
-                >
-                  <div className="min-w-0">
-                    <p className="font-medium text-navy">{bracket.name}</p>
-                    <p className="text-gray-500 text-xs mt-0.5 capitalize">
-                      {bracket.age_category?.name ?? "Category"} ·{" "}
-                      {bracket.weight_class?.gender ?? bracket.gender} ·{" "}
-                      {bracket.weight_class?.name ?? "Weight class"}
-                    </p>
+            <div className="space-y-6">
+              {bracketSections.map((section) => (
+                <section key={section.key} className="space-y-2">
+                  <div>
+                    <h3 className="text-sm font-medium text-navy">{section.title}</h3>
+                    <p className="text-xs text-gray-500 capitalize">{section.subtitle}</p>
                   </div>
-                  <span className="badge bg-gray-100 text-gray-700 self-start capitalize">
-                    {bracket.status}
-                  </span>
-                </Link>
+                  <div className="space-y-2">
+                    {section.brackets.map((bracket) => {
+                      const roster = rosterByBracketId.get(bracket.id);
+                      return (
+                        <Link
+                          key={bracket.id}
+                          href={`/fixtures/${bracket.id}`}
+                          className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border border-gray-100 rounded-lg p-3 text-sm hover:border-boxing/30 hover:bg-gray-50"
+                        >
+                          <div className="min-w-0">
+                            <p className="font-medium text-navy">{bracket.name}</p>
+                            <p className="text-gray-500 text-xs mt-0.5">
+                              {roster?.fighters.length ?? 0} fighter
+                              {(roster?.fighters.length ?? 0) === 1 ? "" : "s"}
+                            </p>
+                          </div>
+                          <span className="badge bg-gray-100 text-gray-700 self-start capitalize">
+                            {bracket.status}
+                          </span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </section>
               ))}
             </div>
           )}

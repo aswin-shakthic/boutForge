@@ -3,6 +3,8 @@
 import {
   fighterFullName,
   fighterRecord,
+  formatFighterWithClub,
+  getFighterClubDisplayName,
   getMatchGameLabel,
   organizeBoutsByRound,
   type Bout,
@@ -139,6 +141,14 @@ function applyFighterAssignment(
   });
 }
 
+function slotClubName(bout: Bout, slot: "a" | "b"): string | null {
+  const slotType = slot === "a" ? bout.slot_a_type : bout.slot_b_type;
+  const fighter = slot === "a" ? bout.fighter_a : bout.fighter_b;
+
+  if (slotType === "bye" || slotType === "winner_of" || !fighter) return null;
+  return getFighterClubDisplayName(fighter);
+}
+
 function slotDisplayName(bout: Bout, slot: "a" | "b", bouts: Bout[]): string {
   const slotType = slot === "a" ? bout.slot_a_type : bout.slot_b_type;
   const fighter = slot === "a" ? bout.fighter_a : bout.fighter_b;
@@ -202,6 +212,7 @@ function BracketFixtureRow({
     .join(" ");
 
   const displayName = slotDisplayName(bout, slot, bouts);
+  const clubName = slotClubName(bout, slot);
 
   return (
     <div className="bracket-fixture-row">
@@ -212,18 +223,24 @@ function BracketFixtureRow({
             value={fighterId ?? ""}
             disabled={saving}
             onChange={(e) => handleChange(e.target.value)}
-            title={displayName}
+            title={clubName ? `${displayName} · ${clubName}` : displayName}
           >
             <option value="">Select fighter…</option>
             {options.map((f) => (
               <option key={f.id} value={f.id}>
-                {fighterFullName(f)} ({fighterRecord(f)})
+                {formatFighterWithClub(f)} ({fighterRecord(f)})
               </option>
             ))}
           </select>
         ) : (
-          <span className="bracket-fixture-name-text bracket-fixture-name-print" title={displayName}>
-            {displayName}
+          <span
+            className="bracket-fixture-name-text bracket-fixture-name-print"
+            title={clubName ? `${displayName} · ${clubName}` : displayName}
+          >
+            <span className="block truncate">{displayName}</span>
+            {clubName ? (
+              <span className="block truncate text-[11px] text-gray-500">{clubName}</span>
+            ) : null}
           </span>
         )}
       </div>

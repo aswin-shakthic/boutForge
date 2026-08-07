@@ -540,6 +540,15 @@ export function getFighterClubDisplayName(f: {
   return f.club?.name?.trim() || "—";
 }
 
+export function formatFighterWithClub(f: {
+  first_name: string;
+  last_name: string;
+  affiliation_name?: string | null;
+  club?: { name?: string | null } | null;
+}): string {
+  return `${fighterFullName(f)} · ${getFighterClubDisplayName(f)}`;
+}
+
 export function fighterRecord(f: { wins: number; losses: number; draws: number }): string {
   return `${f.wins}-${f.losses}-${f.draws}`;
 }

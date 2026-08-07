@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { generateBracketBouts } from "./bracket-engine";
-import type { FighterInput } from "./types";
+import { generateBracketBouts, resolveInitialBoutStatus } from "./bracket-engine";
+import type { BracketPreviewBout, FighterInput } from "./types";
 
 function fighters(count: number): FighterInput[] {
   return Array.from({ length: count }, (_, i) => ({
@@ -62,5 +62,41 @@ describe("generateBracketBouts", () => {
   it("returns no bouts for manual format", () => {
     const { bouts } = generateBracketBouts("manual", fighters(4));
     expect(bouts).toEqual([]);
+  });
+});
+
+describe("resolveInitialBoutStatus", () => {
+  it("marks round-one pairings as scheduled", () => {
+    const preview: BracketPreviewBout = {
+      round_number: 1,
+      bout_order: 1,
+      fighter_a_id: "f1",
+      fighter_b_id: "f2",
+      slot_a_type: "fighter",
+      slot_b_type: "fighter",
+      source_bout_a_order: null,
+      source_bout_b_order: null,
+      winner_advances_to_order: 3,
+      label: "Game 1",
+    };
+
+    expect(resolveInitialBoutStatus(preview)).toBe("scheduled");
+  });
+
+  it("marks winner-of slots as pending fighters", () => {
+    const preview: BracketPreviewBout = {
+      round_number: 2,
+      bout_order: 3,
+      fighter_a_id: null,
+      fighter_b_id: null,
+      slot_a_type: "winner_of",
+      slot_b_type: "winner_of",
+      source_bout_a_order: 1,
+      source_bout_b_order: 2,
+      winner_advances_to_order: null,
+      label: "Final",
+    };
+
+    expect(resolveInitialBoutStatus(preview)).toBe("pending_fighters");
   });
 });
