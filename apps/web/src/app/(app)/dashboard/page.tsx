@@ -21,13 +21,13 @@ export default async function DashboardPage() {
   const stats = await getDashboardStats(supabase, clubId);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
         <div>
-          <h1 className="text-2xl font-bold text-navy">Dashboard</h1>
-          <p className="text-gray-500 mt-1">{membership?.club?.name}</p>
+          <h1 className="page-title">Dashboard</h1>
+          <p className="page-subtitle">{membership?.club?.name}</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
           {[
             { label: "Fighters", value: stats.fighterCount },
             { label: "Upcoming Bouts", value: stats.upcomingCount },
@@ -35,17 +35,17 @@ export default async function DashboardPage() {
             { label: "Pending Results", value: 0 },
           ].map((stat) => (
             <div key={stat.label} className="card">
-              <p className="text-3xl font-bold text-navy">{stat.value}</p>
+              <p className="text-2xl font-bold text-navy sm:text-3xl">{stat.value}</p>
               <p className="text-sm text-gray-500 mt-1">{stat.label}</p>
             </div>
           ))}
         </div>
 
-        <div className="flex gap-4">
-          <Link href="/fixtures/new" className="btn-primary">
+        <div className="page-actions">
+          <Link href="/fixtures/new" className="btn-primary flex-1 sm:flex-none text-center">
             + Create Fixture
           </Link>
-          <Link href="/fighters/new" className="btn-secondary">
+          <Link href="/fighters/new" className="btn-secondary flex-1 sm:flex-none text-center">
             + Add Fighter
           </Link>
         </div>

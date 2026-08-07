@@ -6,6 +6,12 @@ export const metadata: Metadata = {
   description: "Manage boxing bouts, fighters, and fixtures for Indian clubs",
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
 export default function RootLayout({
   children,
 }: {

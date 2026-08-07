@@ -599,9 +599,10 @@ function NewFixtureWizard() {
         <p className="text-sm text-gray-500 mt-1">
           Link brackets to an event, then define categories, weight classes, and assign fighters.
         </p>
-        <div className="flex gap-2 mt-4">
+        <div className="overflow-x-auto -mx-1 px-1 pb-1">
+        <div className="flex gap-2 mt-4 min-w-[36rem] sm:min-w-0">
           {stepLabels.map((label, i) => (
-            <div key={label} className="flex-1">
+            <div key={label} className="flex-1 min-w-[3.5rem]">
               <div
                 className={`h-2 rounded-full ${
                   i + 1 <= step ? "bg-boxing" : "bg-gray-200"
@@ -610,6 +611,7 @@ function NewFixtureWizard() {
               <p className="text-[10px] text-gray-500 mt-1 truncate">{label}</p>
             </div>
           ))}
+        </div>
         </div>
       </div>
 
@@ -849,7 +851,7 @@ function NewFixtureWizard() {
             </div>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex flex-col-reverse sm:flex-row gap-3">
             <button type="button" onClick={() => setStep(1)} className="btn-secondary">
               Back
             </button>
@@ -978,7 +980,7 @@ function NewFixtureWizard() {
             <p className="text-sm text-gray-500">Add at least one weight class.</p>
           )}
 
-          <div className="flex gap-3">
+          <div className="flex flex-col-reverse sm:flex-row gap-3">
             <button type="button" onClick={() => setStep(2)} className="btn-secondary">
               Back
             </button>
@@ -1072,7 +1074,7 @@ function NewFixtureWizard() {
             })}
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex flex-col-reverse sm:flex-row gap-3">
             <button type="button" onClick={() => setStep(3)} className="btn-secondary">
               Back
             </button>
@@ -1169,7 +1171,7 @@ function NewFixtureWizard() {
             );
           })}
 
-          <div className="flex gap-3">
+          <div className="flex flex-col-reverse sm:flex-row gap-3">
             <button type="button" onClick={() => setStep(4)} className="btn-secondary">
               Back
             </button>
@@ -1248,7 +1250,7 @@ function NewFixtureWizard() {
             );
           })}
 
-          <div className="flex gap-3">
+          <div className="flex flex-col-reverse sm:flex-row gap-3">
             <button type="button" onClick={() => setStep(5)} className="btn-secondary">
               Back
             </button>

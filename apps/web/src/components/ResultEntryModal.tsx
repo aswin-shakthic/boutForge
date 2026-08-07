@@ -54,9 +54,9 @@ export function ResultEntryModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4">
       <LoadingOverlay loading={loading} label="Saving result…">
-      <div className="card max-w-md w-full mx-4">
+      <div className="card max-w-md w-full max-h-[90dvh] overflow-y-auto rounded-b-none sm:rounded-xl mx-0 sm:mx-4">
         <h2 className="text-lg font-semibold text-navy mb-4">Enter Result</h2>
         <p className="text-sm text-gray-500 mb-4">
           {fighterA ? fighterFullName(fighterA) : "TBD"} vs{" "}

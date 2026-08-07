@@ -68,13 +68,13 @@ export function FixturesGroupedList({ brackets }: { brackets: BracketListItem[] 
                         </span>
                       </div>
 
-                      <div className="flex flex-wrap gap-2">
-                        <Link href={`/fixtures/${bracket.id}`} className="btn-primary text-sm">
+                      <div className="flex flex-col sm:flex-row flex-wrap gap-2">
+                        <Link href={`/fixtures/${bracket.id}`} className="btn-primary text-sm text-center">
                           View bracket
                         </Link>
                         <Link
                           href={`/fixtures/${bracket.id}?print=1`}
-                          className="btn-secondary text-sm"
+                          className="btn-secondary text-sm text-center"
                         >
                           Print
                         </Link>

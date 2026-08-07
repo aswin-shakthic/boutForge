@@ -7,17 +7,45 @@ body {
 }
 
 @layer components {
+  .page-content {
+    @apply w-full max-w-7xl mx-auto p-4 sm:p-6 lg:p-8;
+  }
+
+  .page-header {
+    @apply flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between;
+  }
+
+  .page-title {
+    @apply text-xl font-bold text-navy sm:text-2xl;
+  }
+
+  .page-subtitle {
+    @apply text-sm text-gray-500 mt-1;
+  }
+
+  .page-actions {
+    @apply flex flex-wrap gap-2 sm:gap-3 shrink-0;
+  }
+
+  .table-scroll {
+    @apply overflow-x-auto -mx-4 sm:mx-0;
+  }
+
+  .table-scroll table {
+    @apply min-w-[640px] w-full;
+  }
+
   .btn-primary {
-    @apply bg-boxing text-white px-4 py-2 rounded-lg font-medium hover:bg-red-700 transition-colors disabled:opacity-50 disabled:pointer-events-none;
+    @apply bg-boxing text-white px-4 py-2.5 sm:py-2 rounded-lg font-medium hover:bg-red-700 transition-colors disabled:opacity-50 disabled:pointer-events-none text-sm sm:text-base inline-flex items-center justify-center;
   }
   .btn-secondary {
-    @apply bg-white text-navy border border-gray-300 px-4 py-2 rounded-lg font-medium hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:pointer-events-none;
+    @apply bg-white text-navy border border-gray-300 px-4 py-2.5 sm:py-2 rounded-lg font-medium hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:pointer-events-none text-sm sm:text-base inline-flex items-center justify-center;
   }
   .input-field {
-    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-boxing focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500;
+    @apply w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-boxing focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500 text-base sm:text-sm;
   }
   .card {
-    @apply bg-white rounded-xl shadow-sm border border-gray-200 p-6;
+    @apply bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6;
   }
   .badge {
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
@@ -41,15 +69,15 @@ body {
   }
 
   .bracket-tree {
-    @apply flex items-stretch gap-0 min-w-max px-2 pb-4;
+    @apply flex items-stretch gap-0 min-w-max px-1 pb-4 sm:px-2;
   }
 
   .bracket-round-col {
-    @apply relative flex flex-col min-w-[12.5rem];
+    @apply relative flex flex-col min-w-[9.5rem] sm:min-w-[11rem] md:min-w-[12.5rem];
   }
 
   .bracket-round-col:not(:last-child) {
-    @apply pr-12;
+    @apply pr-6 sm:pr-10 md:pr-12;
   }
 
   .bracket-round-header {
@@ -102,7 +130,7 @@ body {
   }
 
   .bracket-fixture-connector {
-    @apply pointer-events-none absolute top-[calc(50%+0.625rem)] -right-12 w-12 h-px bg-gray-400;
+    @apply pointer-events-none absolute top-[calc(50%+0.625rem)] -right-6 sm:-right-10 md:-right-12 w-6 sm:w-10 md:w-12 h-px bg-gray-400;
   }
 
   .bracket-fixture-select {
@@ -110,7 +138,11 @@ body {
   }
 
   .bracket-actions {
-    @apply flex flex-wrap items-center justify-between gap-3 mb-4;
+    @apply flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between mb-4;
+  }
+
+  .bracket-scroll-hint {
+    @apply text-xs text-gray-400 mb-2 sm:hidden;
   }
 }
 

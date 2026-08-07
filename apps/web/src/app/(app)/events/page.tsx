@@ -12,10 +12,10 @@ export default async function EventsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-navy">Events</h1>
+      <div className="page-header">
+        <h1 className="page-title">Events</h1>
         {canCreate && (
-          <Link href="/events/new" className="btn-primary">
+          <Link href="/events/new" className="btn-primary shrink-0 text-sm sm:text-base">
             + Create Event
           </Link>
         )}
@@ -33,10 +33,10 @@ export default async function EventsPage() {
               href={`/events/${event.id}`}
               className="card hover:border-boxing transition-colors"
             >
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
                   <h3 className="font-semibold text-navy">{event.name}</h3>
-                  <p className="text-sm text-gray-500 mt-1">
+                  <p className="text-sm text-gray-500 mt-1 break-words">
                     {event.date} · {event.venue ?? "TBD"}
                     {event.is_cross_club && " · Cross-club"}
                   </p>

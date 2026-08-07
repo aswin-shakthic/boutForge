@@ -11,17 +11,16 @@ export default async function FixturesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-navy">Fixtures</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Grouped by event, then age category and weight class. Open any bracket to view or print.
-          </p>
-        </div>
-        <Link href="/fixtures/new" className="btn-primary shrink-0">
+      <div className="page-header">
+        <h1 className="page-title">Fixtures</h1>
+        <Link href="/fixtures/new" className="btn-primary shrink-0 text-sm sm:text-base">
           + Create Fixture
         </Link>
       </div>
+
+      <p className="text-sm text-gray-500 -mt-2">
+        Grouped by event, then age category and weight class.
+      </p>
 
       <FixturesGroupedList brackets={brackets} />
     </div>

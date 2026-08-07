@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { Sidebar } from "./Sidebar";
@@ -16,6 +17,8 @@ export function AppShell({
 }) {
   const router = useRouter();
   const supabase = createClient();
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const closeMobileNav = useCallback(() => setMobileNavOpen(false), []);
 
   async function handleLogout() {
     await supabase.auth.signOut();
@@ -24,20 +27,42 @@ export function AppShell({
   }
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen min-h-[100dvh]">
       <Sidebar
         membership={membership}
         isPlatformAdmin={isPlatformAdmin}
         onLogout={handleLogout}
+        mobileOpen={mobileNavOpen}
+        onClose={closeMobileNav}
       />
-      <main className="flex-1 overflow-auto">
-        <header className="bg-white border-b border-gray-200 px-8 py-4 flex items-center justify-between">
-          <div />
-          <div className="text-sm text-gray-600">
+      <main className="flex min-w-0 flex-1 flex-col overflow-auto">
+        <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-gray-200 bg-white px-4 py-3 sm:px-6 lg:px-8">
+          <div className="flex min-w-0 items-center gap-3">
+            <button
+              type="button"
+              aria-label="Open navigation menu"
+              aria-expanded={mobileNavOpen}
+              onClick={() => setMobileNavOpen(true)}
+              className="rounded-lg border border-gray-200 p-2 text-navy hover:bg-gray-50 lg:hidden"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
+              </svg>
+            </button>
+            <p className="truncate text-sm font-medium text-navy lg:hidden">
+              {membership?.club?.name ?? "BoutForge"}
+            </p>
+          </div>
+          <div className="shrink-0 text-xs capitalize text-gray-600 sm:text-sm">
             {membership?.role?.replace("_", " ") ?? "Guest"}
           </div>
         </header>
-        <div className="p-8">{children}</div>
+        <div className="page-content">{children}</div>
       </main>
     </div>
   );

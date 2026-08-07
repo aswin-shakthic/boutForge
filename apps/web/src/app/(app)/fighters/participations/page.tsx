@@ -39,14 +39,15 @@ export default async function OrganizerParticipationsPage() {
       ) : (
         groups.map((group) => (
           <div key={group.home_club_id} className="card p-0 overflow-hidden">
-            <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+            <div className="px-4 py-3 sm:px-6 sm:py-4 bg-gray-50 border-b border-gray-200">
               <h2 className="font-semibold text-navy">{group.home_club_name}</h2>
               <p className="text-xs text-gray-500 mt-1">
                 {group.fighters.length} fighter{group.fighters.length === 1 ? "" : "s"}{" "}
                 participated in your fixtures
               </p>
             </div>
-            <table className="w-full">
+            <div className="table-scroll">
+            <table>
               <thead className="border-b border-gray-100">
                 <tr>
                   <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">
@@ -115,6 +116,7 @@ export default async function OrganizerParticipationsPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         ))
       )}

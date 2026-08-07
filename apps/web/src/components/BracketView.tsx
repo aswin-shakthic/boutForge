@@ -380,7 +380,7 @@ export function BracketView({
         </button>
       </div>
 
-      <div id="bracket-print-area" className="bracket-print-sheet p-6 md:p-10">
+      <div id="bracket-print-area" className="bracket-print-sheet p-4 sm:p-6 md:p-10">
         <div className="text-center mb-10">
           <h1 className="bracket-print-title">{tournamentTitle}</h1>
           {participantCount > 0 && bracket.name !== tournamentTitle && (
@@ -397,7 +397,9 @@ export function BracketView({
         {rounds.length === 0 ? (
           <p className="text-center text-gray-500">No matches in this bracket yet.</p>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            <p className="bracket-scroll-hint">Swipe horizontally to view the full bracket →</p>
+            <div className="overflow-x-auto -mx-2 px-2 sm:mx-0 sm:px-0 touch-pan-x">
             <div className="bracket-tree" style={{ minHeight: treeMinHeight }}>
               {rounds.map((round, roundIndex) => (
                 <div
@@ -429,7 +431,8 @@ export function BracketView({
                 </div>
               ))}
             </div>
-          </div>
+            </div>
+          </>
         )}
       </div>
 

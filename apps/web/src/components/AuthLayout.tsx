@@ -11,11 +11,11 @@ export function AuthLayout({
   subtitle?: string;
 }) {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-navy">
+    <div className="min-h-screen min-h-[100dvh] flex items-center justify-center bg-navy px-4 py-8 sm:py-12">
       <div className="absolute inset-0 opacity-5 bg-[radial-gradient(circle_at_center,_#fff_1px,_transparent_1px)] bg-[length:24px_24px]" />
-      <div className="relative w-full max-w-md mx-4">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white">{APP_NAME}</h1>
+      <div className="relative w-full max-w-md">
+        <div className="text-center mb-6 sm:mb-8">
+          <h1 className="text-2xl font-bold text-white sm:text-3xl">{APP_NAME}</h1>
           <p className="text-white/60 mt-2 text-sm">Boxing Fixture Management</p>
         </div>
         <div className="card">
