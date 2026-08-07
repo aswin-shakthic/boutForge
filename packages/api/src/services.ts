@@ -1255,7 +1255,13 @@ export async function deleteBracket(
   bracketId: string
 ): Promise<void> {
   const { error } = await supabase.from("brackets").delete().eq("id", bracketId);
-  if (error) throw error;
+  if (error) {
+    throw new Error(
+      error.message.includes("row-level security")
+        ? "You do not have permission to delete this fixture. Ask a club admin to apply the latest database migrations."
+        : error.message
+    );
+  }
 }
 
 export async function resolveFixtureCategoryIds(
@@ -1565,7 +1571,13 @@ export async function deleteEvent(
   eventId: string
 ): Promise<void> {
   const { error } = await supabase.from("events").delete().eq("id", eventId);
-  if (error) throw error;
+  if (error) {
+    throw new Error(
+      error.message.includes("row-level security")
+        ? "You do not have permission to delete this event. Only the organizer or club admin can delete events."
+        : error.message
+    );
+  }
 }
 
 export async function getAllClubs(supabase: SupabaseClient): Promise<Club[]> {

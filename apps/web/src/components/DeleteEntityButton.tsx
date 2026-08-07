@@ -35,7 +35,9 @@ export function DeleteEntityButton({
       router.push(redirectTo);
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Delete failed");
+      const message = err instanceof Error ? err.message : "Delete failed";
+      setError(message);
+      window.alert(message);
       setLoading(false);
     }
   }

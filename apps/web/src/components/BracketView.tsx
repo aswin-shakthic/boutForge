@@ -15,10 +15,15 @@ import { reassignBracketFighter, updateBracket } from "@boutforge/api";
 import { Check, Printer } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase/client";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { usePendingLoads } from "@/hooks/usePendingLoads";
-import { ResultEntryModal } from "./ResultEntryModal";
+
+const ResultEntryModal = dynamic(
+  () => import("./ResultEntryModal").then((mod) => mod.ResultEntryModal),
+  { ssr: false }
+);
 
 function resolveSlotFighter(
   bout: Bout,

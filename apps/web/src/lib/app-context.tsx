@@ -1,9 +1,10 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getProfile, getUserClubs } from "@boutforge/api";
 import { AppShell } from "@/components/AppShell";
 
-export async function getAppContext() {
+export const getAppContext = cache(async () => {
   const supabase = await createClient();
   if (!supabase) redirect("/login");
 
@@ -34,7 +35,7 @@ export async function getAppContext() {
     isPlatformAdmin: profile?.is_platform_admin ?? false,
     clubId: membership?.club_id ?? null,
   };
-}
+});
 
 export async function AppLayoutWrapper({
   children,

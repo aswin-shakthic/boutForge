@@ -30,6 +30,9 @@ if (process.env.VERCEL_ENV === "production") {
 const nextConfig: NextConfig = {
   transpilePackages: ["@boutforge/shared", "@boutforge/api"],
   outputFileTracingRoot: path.join(__dirname, "../../"),
+  experimental: {
+    optimizePackageImports: ["lucide-react", "@boutforge/shared", "@boutforge/api"],
+  },
 };
 
 export default nextConfig;

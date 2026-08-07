@@ -1,9 +1,20 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { BracketView } from "@/components/BracketView";
 import type { Bout, Bracket, Fighter } from "@boutforge/shared";
+
+const BracketView = dynamic(
+  () => import("@/components/BracketView").then((mod) => mod.BracketView),
+  {
+    loading: () => (
+      <div className="card animate-pulse h-96 flex items-center justify-center text-gray-400">
+        Loading bracket…
+      </div>
+    ),
+  }
+);
 
 export function FixtureBracketPage({
   bracket,

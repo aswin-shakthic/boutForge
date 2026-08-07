@@ -10,11 +10,21 @@ import {
   groupBracketsForDisplay,
 } from "@boutforge/shared";
 import { getAppContext } from "@/lib/app-context";
-import { EventCategoriesEditor } from "@/components/EventCategoriesEditor";
 import { DeleteEventButton } from "@/components/DeleteEventButton";
 import { DeleteFixtureButton } from "@/components/DeleteFixtureButton";
 import { PublishEventButton } from "./PublishEventButton";
 import { IconAction } from "@/components/ui/IconAction";
+import dynamic from "next/dynamic";
+
+const EventCategoriesEditor = dynamic(
+  () =>
+    import("@/components/EventCategoriesEditor").then((mod) => mod.EventCategoriesEditor),
+  {
+    loading: () => (
+      <div className="animate-pulse h-32 rounded-lg bg-gray-100" aria-hidden />
+    ),
+  }
+);
 
 type EventClubRow = {
   id: string;
