@@ -130,32 +130,7 @@ BEGIN
     ('33333333-3333-3333-3333-333333333310', v_club_id, 'Neha', 'Kulkarni', '2009-02-14', 'female', 52, v_youth_id, v_wc52f_id, 3, 1, 0, '2026-05-01')
   ON CONFLICT (id) DO NOTHING;
 
-  -- Bracket
-  INSERT INTO brackets (id, club_id, name, format, age_category_id, gender, weight_class_id, status, venue, scheduled_date, bye_fighter_id) VALUES
-    (v_bracket_id, v_club_id, 'Youth Male 60kg — July Knockout', 'progressive_knockout', v_youth_id, 'male', v_wc60_id, 'in_progress', 'Mumbai Warriors Club Ring', '2026-07-18', '33333333-3333-3333-3333-333333333307')
-  ON CONFLICT (id) DO NOTHING;
-
-  INSERT INTO brackets (id, club_id, name, format, age_category_id, gender, weight_class_id, status, venue, scheduled_date, bye_fighter_id) VALUES
-    ('44444444-4444-4444-4444-444444444402', v_club_id, 'Elite Male 69kg — Sparring Day', 'round_robin', v_elite_id, 'male', v_wc69_id, 'published', 'Mumbai Warriors Club Ring', '2026-08-05', NULL)
-  ON CONFLICT (id) DO NOTHING;
-
-  -- Bouts (QF complete, SF scheduled, Final pending)
-  INSERT INTO bouts (id, bracket_id, club_id, fighter_a_id, fighter_b_id, round_number, bout_order, winner_advances_to_bout_id, source_bout_a_id, source_bout_b_id, slot_a_type, slot_b_type, status, scheduled_at) VALUES
-    (v_bout1, v_bracket_id, v_club_id, '33333333-3333-3333-3333-333333333304', '33333333-3333-3333-3333-333333333305', 1, 1, v_bout4, NULL, NULL, 'fighter', 'fighter', 'completed', '2026-07-18 10:00:00+00'),
-    (v_bout2, v_bracket_id, v_club_id, '33333333-3333-3333-3333-333333333302', '33333333-3333-3333-3333-333333333306', 1, 2, v_bout4, NULL, NULL, 'fighter', 'fighter', 'completed', '2026-07-18 10:30:00+00'),
-    (v_bout3, v_bracket_id, v_club_id, '33333333-3333-3333-3333-333333333301', '33333333-3333-3333-3333-333333333303', 1, 3, v_bout5, NULL, NULL, 'fighter', 'fighter', 'completed', '2026-07-18 11:00:00+00'),
-    (v_bout4, v_bracket_id, v_club_id, '33333333-3333-3333-3333-333333333304', '33333333-3333-3333-3333-333333333306', 2, 4, v_bout6, v_bout1, v_bout2, 'fighter', 'fighter', 'scheduled', '2026-07-18 14:00:00+00'),
-    (v_bout5, v_bracket_id, v_club_id, '33333333-3333-3333-3333-333333333301', '33333333-3333-3333-3333-333333333307', 2, 5, v_bout6, v_bout3, NULL, 'fighter', 'bye', 'scheduled', '2026-07-18 14:30:00+00'),
-    (v_bout6, v_bracket_id, v_club_id, NULL, NULL, 3, 6, NULL, v_bout4, v_bout5, 'winner_of', 'winner_of', 'pending_fighters', '2026-07-18 16:00:00+00')
-  ON CONFLICT (id) DO NOTHING;
-
-  INSERT INTO bout_results (id, bout_id, winner_id, method, round_ended, recorded_by) VALUES
-    ('88888888-8888-8888-8888-888888888801', v_bout1, '33333333-3333-3333-3333-333333333304', 'UD', 3, '11111111-1111-1111-1111-111111111101'),
-    ('88888888-8888-8888-8888-888888888802', v_bout2, '33333333-3333-3333-3333-333333333306', 'SD', 3, '11111111-1111-1111-1111-111111111101'),
-    ('88888888-8888-8888-8888-888888888803', v_bout3, '33333333-3333-3333-3333-333333333301', 'UD', 3, '11111111-1111-1111-1111-111111111101')
-  ON CONFLICT (id) DO NOTHING;
-
-  -- Events
+  -- Events (before brackets so event_id FK is valid)
   INSERT INTO events (id, name, date, venue, state_zone, status, is_cross_club, organizer_club_id, organizer_user_id) VALUES
     ('66666666-6666-6666-6666-666666666601', 'West Zone Inter-Club Championship 2026', '2026-08-15', 'Pune Indoor Stadium', 'West Zone', 'published', true, v_club_id, '11111111-1111-1111-1111-111111111101'),
     ('66666666-6666-6666-6666-666666666602', 'Mumbai Open Talent Hunt', '2026-09-20', 'NSCI Dome, Mumbai', 'Maharashtra', 'draft', true, v_club_id, '11111111-1111-1111-1111-111111111101')
@@ -165,5 +140,24 @@ BEGIN
     ('99999999-9999-9999-9999-999999999901', '66666666-6666-6666-6666-666666666601', '22222222-2222-2222-2222-222222222201'),
     ('99999999-9999-9999-9999-999999999902', '66666666-6666-6666-6666-666666666601', '22222222-2222-2222-2222-222222222202'),
     ('99999999-9999-9999-9999-999999999903', '66666666-6666-6666-6666-666666666601', '22222222-2222-2222-2222-222222222203')
+  ON CONFLICT (id) DO NOTHING;
+
+  -- Bracket
+  INSERT INTO brackets (id, club_id, event_id, name, format, age_category_id, gender, weight_class_id, status, venue, scheduled_date, bye_fighter_id) VALUES
+    (v_bracket_id, v_club_id, '66666666-6666-6666-6666-666666666601', 'Youth Male 60kg — July Knockout', 'progressive_knockout', v_youth_id, 'male', v_wc60_id, 'published', 'Mumbai Warriors Club Ring', '2026-07-18', '33333333-3333-3333-3333-333333333307')
+  ON CONFLICT (id) DO NOTHING;
+
+  INSERT INTO brackets (id, club_id, event_id, name, format, age_category_id, gender, weight_class_id, status, venue, scheduled_date, bye_fighter_id) VALUES
+    ('44444444-4444-4444-4444-444444444402', v_club_id, '66666666-6666-6666-6666-666666666601', 'Elite Male 69kg — Sparring Day', 'round_robin', v_elite_id, 'male', v_wc69_id, 'published', 'Mumbai Warriors Club Ring', '2026-08-05', NULL)
+  ON CONFLICT (id) DO NOTHING;
+
+  -- Bouts (progressive knockout: 3 prelims, 2 semis, 1 final)
+  INSERT INTO bouts (id, bracket_id, event_id, club_id, fighter_a_id, fighter_b_id, round_number, bout_order, winner_advances_to_bout_id, source_bout_a_id, source_bout_b_id, slot_a_type, slot_b_type, status, scheduled_at) VALUES
+    (v_bout1, v_bracket_id, '66666666-6666-6666-6666-666666666601', v_club_id, '33333333-3333-3333-3333-333333333301', '33333333-3333-3333-3333-333333333302', 1, 1, v_bout4, NULL, NULL, 'fighter', 'fighter', 'scheduled', '2026-07-18 10:00:00+00'),
+    (v_bout2, v_bracket_id, '66666666-6666-6666-6666-666666666601', v_club_id, '33333333-3333-3333-3333-333333333303', '33333333-3333-3333-3333-333333333304', 1, 2, v_bout5, NULL, NULL, 'fighter', 'fighter', 'scheduled', '2026-07-18 10:30:00+00'),
+    (v_bout3, v_bracket_id, '66666666-6666-6666-6666-666666666601', v_club_id, '33333333-3333-3333-3333-333333333305', '33333333-3333-3333-3333-333333333306', 1, 3, v_bout5, NULL, NULL, 'fighter', 'fighter', 'scheduled', '2026-07-18 11:00:00+00'),
+    (v_bout4, v_bracket_id, '66666666-6666-6666-6666-666666666601', v_club_id, NULL, '33333333-3333-3333-3333-333333333307', 2, 4, v_bout6, v_bout1, NULL, 'winner_of', 'fighter', 'pending_fighters', '2026-07-18 14:00:00+00'),
+    (v_bout5, v_bracket_id, '66666666-6666-6666-6666-666666666601', v_club_id, NULL, NULL, 2, 5, v_bout6, v_bout2, v_bout3, 'winner_of', 'winner_of', 'pending_fighters', '2026-07-18 14:30:00+00'),
+    (v_bout6, v_bracket_id, '66666666-6666-6666-6666-666666666601', v_club_id, NULL, NULL, 3, 6, NULL, v_bout4, v_bout5, 'winner_of', 'winner_of', 'pending_fighters', '2026-07-18 16:00:00+00')
   ON CONFLICT (id) DO NOTHING;
 END $$;

@@ -26,6 +26,7 @@ import {
   type EventInput,
   type FighterFormInput,
   type Gender,
+  type BracketPreviewBout,
 } from "@boutforge/shared";
 import type {
   AgeCategory,
@@ -588,6 +589,282 @@ export async function getFighterHistory(
   return (data ?? []) as Bout[];
 }
 
+type BoutSeedRow = {
+  round_number: number;
+  bout_order: number;
+  fighter_a_id: string | null;
+  fighter_b_id: string | null;
+  slot_a_type: string;
+  slot_b_type: string;
+};
+
+export function extractBracketFighterIds(
+  bouts: BoutSeedRow[],
+  byeFighterId?: string | null
+): string[] {
+  const sorted = [...bouts].sort(
+    (a, b) => a.round_number - b.round_number || a.bout_order - b.bout_order
+  );
+  const order: string[] = [];
+  const seen = new Set<string>();
+
+  const add = (fighterId: string | null | undefined) => {
+    if (!fighterId || seen.has(fighterId)) return;
+    seen.add(fighterId);
+    order.push(fighterId);
+  };
+
+  for (const bout of sorted) {
+    if (bout.slot_a_type === "fighter") add(bout.fighter_a_id);
+    if (bout.slot_b_type === "fighter") add(bout.fighter_b_id);
+  }
+
+  add(byeFighterId);
+  return order;
+}
+
+function orderFightersByIds(fighters: Fighter[], fighterIds: string[]): Fighter[] {
+  const fighterMap = new Map(fighters.map((fighter) => [fighter.id, fighter]));
+  return fighterIds
+    .map((id) => fighterMap.get(id))
+    .filter((fighter): fighter is Fighter => Boolean(fighter));
+}
+
+function toFighterInputs(fighters: Fighter[]): FighterInput[] {
+  return fighters.map((fighter) => ({
+    id: fighter.id,
+    first_name: fighter.first_name,
+    last_name: fighter.last_name,
+    dob: fighter.dob,
+    gender: fighter.gender,
+    weight_kg: fighter.weight_kg,
+    wins: fighter.wins,
+    losses: fighter.losses,
+    draws: fighter.draws,
+    last_bout_at: fighter.last_bout_at,
+  }));
+}
+
+async function insertBracketBoutsFromPreview(
+  supabase: SupabaseClient,
+  params: {
+    bracketId: string;
+    eventId: string;
+    clubId: string;
+    previewBouts: BracketPreviewBout[];
+  }
+): Promise<Bout[]> {
+  const boutIdMap = new Map<number, string>();
+  const createdBouts: Bout[] = [];
+
+  for (const preview of params.previewBouts) {
+    const status = resolveInitialBoutStatus(preview);
+    const { data: bout, error } = await supabase
+      .from("bouts")
+      .insert({
+        bracket_id: params.bracketId,
+        event_id: params.eventId,
+        club_id: params.clubId,
+        fighter_a_id: preview.fighter_a_id,
+        fighter_b_id: preview.fighter_b_id,
+        round_number: preview.round_number,
+        bout_order: preview.bout_order,
+        slot_a_type: preview.slot_a_type,
+        slot_b_type: preview.slot_b_type,
+        status,
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    boutIdMap.set(preview.bout_order, bout.id);
+    createdBouts.push(bout as Bout);
+  }
+
+  for (const preview of params.previewBouts) {
+    const boutId = boutIdMap.get(preview.bout_order);
+    if (!boutId) continue;
+
+    const updates: Record<string, unknown> = {};
+    if (preview.winner_advances_to_order) {
+      updates.winner_advances_to_bout_id = boutIdMap.get(preview.winner_advances_to_order);
+    }
+    if (preview.source_bout_a_order) {
+      updates.source_bout_a_id = boutIdMap.get(preview.source_bout_a_order);
+    }
+    if (preview.source_bout_b_order) {
+      updates.source_bout_b_id = boutIdMap.get(preview.source_bout_b_order);
+    }
+
+    if (Object.keys(updates).length > 0) {
+      const { error } = await supabase.from("bouts").update(updates).eq("id", boutId);
+      if (error) throw error;
+    }
+  }
+
+  return createdBouts;
+}
+
+export type RegenerateBracketResult = {
+  bracketId: string;
+  bracketName: string;
+  fighterCount: number;
+  boutCount: number;
+  skipped?: boolean;
+  reason?: string;
+};
+
+export async function regenerateBracketBouts(
+  supabase: SupabaseClient,
+  bracketId: string,
+  options?: { force?: boolean; fighterIds?: string[] }
+): Promise<{ bracket: Bracket; bouts: Bout[] }> {
+  const { data: bracket, error: bracketError } = await supabase
+    .from("brackets")
+    .select("*")
+    .eq("id", bracketId)
+    .single();
+  if (bracketError) throw bracketError;
+
+  if (bracket.format !== "progressive_knockout") {
+    throw new Error("Only progressive knockout brackets can be regenerated");
+  }
+
+  const { data: existingBouts, error: boutError } = await supabase
+    .from("bouts")
+    .select(
+      "id, round_number, bout_order, fighter_a_id, fighter_b_id, slot_a_type, slot_b_type, status"
+    )
+    .eq("bracket_id", bracketId)
+    .order("round_number")
+    .order("bout_order");
+  if (boutError) throw boutError;
+
+  const hasCompleted = (existingBouts ?? []).some((bout) => bout.status === "completed");
+  if (hasCompleted && !options?.force) {
+    throw new Error("Cannot regenerate a bracket that has completed bouts");
+  }
+
+  const fighterIds =
+    options?.fighterIds ??
+    extractBracketFighterIds(existingBouts ?? [], bracket.bye_fighter_id);
+
+  if (fighterIds.length < 2) {
+    throw new Error("At least 2 fighters are required to regenerate a bracket");
+  }
+
+  const { data: fighters, error: fighterError } = await supabase
+    .from("fighters")
+    .select("*")
+    .in("id", fighterIds);
+  if (fighterError) throw fighterError;
+
+  const orderedFighters = orderFightersByIds((fighters ?? []) as Fighter[], fighterIds);
+  if (orderedFighters.length < 2) {
+    throw new Error("Could not load enough fighters to regenerate this bracket");
+  }
+
+  const { bouts: previewBouts, byeFighterId } = generateBracketBouts(
+    "progressive_knockout",
+    toFighterInputs(orderedFighters),
+    bracket.bye_fighter_id
+  );
+
+  const { error: deleteError } = await supabase
+    .from("bouts")
+    .delete()
+    .eq("bracket_id", bracketId);
+  if (deleteError) throw deleteError;
+
+  const { error: updateError } = await supabase
+    .from("brackets")
+    .update({ bye_fighter_id: byeFighterId })
+    .eq("id", bracketId);
+  if (updateError) throw updateError;
+
+  const createdBouts = await insertBracketBoutsFromPreview(supabase, {
+    bracketId,
+    eventId: bracket.event_id,
+    clubId: bracket.club_id,
+    previewBouts,
+  });
+
+  return {
+    bracket: { ...(bracket as Bracket), bye_fighter_id: byeFighterId },
+    bouts: createdBouts,
+  };
+}
+
+export async function regenerateAllProgressiveKnockoutBrackets(
+  supabase: SupabaseClient,
+  options?: { force?: boolean; bracketIds?: string[] }
+): Promise<RegenerateBracketResult[]> {
+  let query = supabase
+    .from("brackets")
+    .select("id, name, format, bye_fighter_id")
+    .eq("format", "progressive_knockout");
+
+  if (options?.bracketIds?.length) {
+    query = query.in("id", options.bracketIds);
+  }
+
+  const { data: brackets, error } = await query;
+  if (error) throw error;
+
+  const results: RegenerateBracketResult[] = [];
+
+  for (const bracket of brackets ?? []) {
+    const { data: existingBouts } = await supabase
+      .from("bouts")
+      .select(
+        "round_number, bout_order, fighter_a_id, fighter_b_id, slot_a_type, slot_b_type, status"
+      )
+      .eq("bracket_id", bracket.id);
+
+    const completedCount = (existingBouts ?? []).filter(
+      (bout) => bout.status === "completed"
+    ).length;
+
+    if (completedCount > 0 && !options?.force) {
+      results.push({
+        bracketId: bracket.id,
+        bracketName: bracket.name,
+        fighterCount: 0,
+        boutCount: 0,
+        skipped: true,
+        reason: "Has completed bouts",
+      });
+      continue;
+    }
+
+    const fighterIds = extractBracketFighterIds(existingBouts ?? [], bracket.bye_fighter_id);
+    if (fighterIds.length < 2) {
+      results.push({
+        bracketId: bracket.id,
+        bracketName: bracket.name,
+        fighterCount: fighterIds.length,
+        boutCount: 0,
+        skipped: true,
+        reason: "Fewer than 2 fighters found",
+      });
+      continue;
+    }
+
+    const { bouts } = await regenerateBracketBouts(supabase, bracket.id, {
+      force: options?.force,
+      fighterIds,
+    });
+
+    results.push({
+      bracketId: bracket.id,
+      bracketName: bracket.name,
+      fighterCount: fighterIds.length,
+      boutCount: bouts.length,
+    });
+  }
+
+  return results;
+}
+
 export async function createBracket(
   supabase: SupabaseClient,
   clubId: string,
@@ -606,18 +883,8 @@ export async function createBracket(
     throw new Error("At least 2 fighters required");
   }
 
-  const fighterInputs: FighterInput[] = fighters.map((f) => ({
-    id: f.id,
-    first_name: f.first_name,
-    last_name: f.last_name,
-    dob: f.dob,
-    gender: f.gender,
-    weight_kg: f.weight_kg,
-    wins: f.wins,
-    losses: f.losses,
-    draws: f.draws,
-    last_bout_at: f.last_bout_at,
-  }));
+  const orderedFighters = orderFightersByIds(fighters as Fighter[], input.fighter_ids);
+  const fighterInputs = toFighterInputs(orderedFighters);
 
   const { bouts: previewBouts, byeFighterId } = generateBracketBouts(
     input.format,
@@ -625,7 +892,7 @@ export async function createBracket(
     input.bye_fighter_id
   );
 
-  const firstFighter = fighters[0];
+  const firstFighter = orderedFighters[0];
   const { data: bracket, error: bracketError } = await supabase
     .from("brackets")
     .insert({
@@ -645,53 +912,12 @@ export async function createBracket(
     .single();
   if (bracketError) throw bracketError;
 
-  const boutIdMap = new Map<number, string>();
-  const createdBouts: Bout[] = [];
-
-  for (const preview of previewBouts) {
-    const status = resolveInitialBoutStatus(preview);
-
-    const { data: bout, error } = await supabase
-      .from("bouts")
-      .insert({
-        bracket_id: bracket.id,
-        event_id: input.event_id,
-        club_id: clubId,
-        fighter_a_id: preview.fighter_a_id,
-        fighter_b_id: preview.fighter_b_id,
-        round_number: preview.round_number,
-        bout_order: preview.bout_order,
-        slot_a_type: preview.slot_a_type,
-        slot_b_type: preview.slot_b_type,
-        status,
-      })
-      .select()
-      .single();
-    if (error) throw error;
-    boutIdMap.set(preview.bout_order, bout.id);
-    createdBouts.push(bout as Bout);
-  }
-
-  for (const preview of previewBouts) {
-    const boutId = boutIdMap.get(preview.bout_order);
-    if (!boutId) continue;
-
-    const updates: Record<string, unknown> = {};
-
-    if (preview.winner_advances_to_order) {
-      updates.winner_advances_to_bout_id = boutIdMap.get(preview.winner_advances_to_order);
-    }
-    if (preview.source_bout_a_order) {
-      updates.source_bout_a_id = boutIdMap.get(preview.source_bout_a_order);
-    }
-    if (preview.source_bout_b_order) {
-      updates.source_bout_b_id = boutIdMap.get(preview.source_bout_b_order);
-    }
-
-    if (Object.keys(updates).length > 0) {
-      await supabase.from("bouts").update(updates).eq("id", boutId);
-    }
-  }
+  const createdBouts = await insertBracketBoutsFromPreview(supabase, {
+    bracketId: bracket.id,
+    eventId: input.event_id,
+    clubId,
+    previewBouts,
+  });
 
   return { bracket: bracket as Bracket, bouts: createdBouts };
 }
@@ -729,9 +955,10 @@ export async function getEventBracketRosters(
   const [{ data: bouts }, { data: bracketRows }] = await Promise.all([
     supabase
       .from("bouts")
-      .select("bracket_id, fighter_a_id, fighter_b_id, slot_a_type, slot_b_type")
+      .select("bracket_id, fighter_a_id, fighter_b_id, slot_a_type, slot_b_type, round_number, bout_order")
       .in("bracket_id", bracketIds)
-      .eq("round_number", 1),
+      .order("round_number")
+      .order("bout_order"),
     supabase.from("brackets").select("id, bye_fighter_id").in("id", bracketIds),
   ]);
 
@@ -740,16 +967,13 @@ export async function getEventBracketRosters(
     fighterIdsByBracket.set(bracketId, new Set());
   }
 
-  for (const bout of bouts ?? []) {
-    const ids = fighterIdsByBracket.get(bout.bracket_id);
-    if (!ids) continue;
-    if (bout.slot_a_type === "fighter" && bout.fighter_a_id) ids.add(bout.fighter_a_id);
-    if (bout.slot_b_type === "fighter" && bout.fighter_b_id) ids.add(bout.fighter_b_id);
-  }
-
-  for (const row of bracketRows ?? []) {
-    if (row.bye_fighter_id) {
-      fighterIdsByBracket.get(row.id)?.add(row.bye_fighter_id);
+  for (const bracketId of bracketIds) {
+    const bracketBouts = (bouts ?? []).filter((bout) => bout.bracket_id === bracketId);
+    for (const fighterId of extractBracketFighterIds(
+      bracketBouts,
+      bracketRows?.find((row) => row.id === bracketId)?.bye_fighter_id
+    )) {
+      fighterIdsByBracket.get(bracketId)?.add(fighterId);
     }
   }
 
@@ -909,9 +1133,8 @@ export async function reassignBracketFighter(
     s: "a" | "b"
   ): boolean => {
     const slotType = s === "a" ? bout.slot_a_type : bout.slot_b_type;
-    if (slotType === "winner_of") return false;
-    if (bout.round_number === 1) return true;
-    return slotType === "bye";
+    if (slotType === "winner_of" || slotType === "tbd") return false;
+    return slotType === "fighter" || slotType === "bye";
   };
 
   const clearUpdates: Array<{ id: string; slot: "a" | "b" }> = [];

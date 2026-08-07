@@ -6,13 +6,16 @@
   "types": "./src/index.ts",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "build": "tsc"
+    "build": "tsc",
+    "test": "vitest run",
+    "regenerate-brackets": "vitest run --config vitest.integration.config.ts src/regenerate-brackets.integration.test.ts"
   },
   "dependencies": {
     "@boutforge/shared": "*",
     "@supabase/supabase-js": "^2.47.10"
   },
   "devDependencies": {
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^3.0.5"
   }
 }

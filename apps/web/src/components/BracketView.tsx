@@ -41,9 +41,8 @@ function sourceLabel(bout: Bout, bouts: Bout[], slot: "a" | "b"): string {
 
 function isAssignmentSlot(bout: Bout, slot: "a" | "b"): boolean {
   const slotType = slot === "a" ? bout.slot_a_type : bout.slot_b_type;
-  if (slotType === "winner_of") return false;
-  if (bout.round_number === 1) return true;
-  return slotType === "bye";
+  if (slotType === "winner_of" || slotType === "tbd") return false;
+  return slotType === "fighter" || slotType === "bye";
 }
 
 function isEditableSlot(bout: Bout, slot: "a" | "b"): boolean {

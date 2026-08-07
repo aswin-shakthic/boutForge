@@ -16,6 +16,7 @@
     "db:start": "npx supabase start -x vector",
     "db:reset": "npx supabase db reset",
     "db:stop": "npx supabase stop",
+    "db:regenerate-brackets": "REGENERATE_BRACKETS=1 npm run regenerate-brackets --workspace=@boutforge/api",
     "git:hooks": "bash scripts/install-git-hooks.sh"
   },
   "devDependencies": {
