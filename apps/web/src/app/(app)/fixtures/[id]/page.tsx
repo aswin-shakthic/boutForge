@@ -87,6 +87,15 @@ export default async function FixtureDetailPage({
           canEdit={canEdit}
         />
       </Suspense>
+      {canDelete && (
+        <div className="no-print card border-red-100 mt-8 space-y-3">
+          <h2 className="font-semibold text-navy">Danger zone</h2>
+          <p className="text-sm text-gray-500">
+            Deleting this fixture removes all bouts and results in this bracket.
+          </p>
+          <DeleteFixtureButton bracketId={bracket.id} bracketName={bracket.name} />
+        </div>
+      )}
     </div>
   );
 }

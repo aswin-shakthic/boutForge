@@ -1,4 +1,5 @@
 import { groupBracketsByEvent, type BracketListItem } from "@boutforge/shared";
+import { DeleteFixtureButton } from "@/components/DeleteFixtureButton";
 import { IconAction } from "@/components/ui/IconAction";
 
 function formatLabel(value: string) {
@@ -8,9 +9,11 @@ function formatLabel(value: string) {
 export function FixturesGroupedList({
   brackets,
   canEdit = false,
+  canDelete = false,
 }: {
   brackets: BracketListItem[];
   canEdit?: boolean;
+  canDelete?: boolean;
 }) {
   const eventGroups = groupBracketsByEvent(brackets);
 
@@ -91,6 +94,13 @@ export function FixturesGroupedList({
                             label="Edit fixture"
                             icon="pencil"
                             variant="ghost"
+                          />
+                        )}
+                        {canDelete && (
+                          <DeleteFixtureButton
+                            bracketId={bracket.id}
+                            bracketName={bracket.name}
+                            compact
                           />
                         )}
                         <IconAction

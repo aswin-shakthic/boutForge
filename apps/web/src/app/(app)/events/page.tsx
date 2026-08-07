@@ -1,6 +1,7 @@
 import { getEvents } from "@boutforge/api";
-import { canEditEvent, canManageEvents } from "@boutforge/shared";
+import { canDeleteEvent, canEditEvent, canManageEvents } from "@boutforge/shared";
 import { getAppContext } from "@/lib/app-context";
+import { DeleteEventButton } from "@/components/DeleteEventButton";
 import { IconAction } from "@/components/ui/IconAction";
 
 export default async function EventsPage() {
@@ -42,6 +43,7 @@ export default async function EventsPage() {
               userClubId: clubId,
             };
             const canEdit = canEditEvent(membership?.role, accessContext);
+            const canDelete = canDeleteEvent(membership?.role, accessContext);
 
             return (
               <article key={event.id} className="card hover:border-boxing transition-colors">
@@ -69,6 +71,13 @@ export default async function EventsPage() {
                         label="Edit event"
                         icon="pencil"
                         variant="ghost"
+                      />
+                    )}
+                    {canDelete && (
+                      <DeleteEventButton
+                        eventId={event.id}
+                        eventName={event.name}
+                        compact
                       />
                     )}
                   </div>

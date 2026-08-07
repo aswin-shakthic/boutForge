@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { getBracketsByEvent, getEventBracketRosters } from "@boutforge/api";
 import {
+  canDeleteBracket as checkCanDeleteBracket,
   canDeleteEvent as checkCanDeleteEvent,
   canEditEvent as checkCanEditEvent,
   fighterFullName,
@@ -11,6 +12,7 @@ import {
 import { getAppContext } from "@/lib/app-context";
 import { EventCategoriesEditor } from "@/components/EventCategoriesEditor";
 import { DeleteEventButton } from "@/components/DeleteEventButton";
+import { DeleteFixtureButton } from "@/components/DeleteFixtureButton";
 import { PublishEventButton } from "./PublishEventButton";
 import { IconAction } from "@/components/ui/IconAction";
 
@@ -25,7 +27,7 @@ export default async function EventDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { supabase, membership, profile, user, clubId } = await getAppContext();
+  const { supabase, membership, profile, user, clubId, isPlatformAdmin } = await getAppContext();
 
   const { data: event } = await supabase
     .from("events")
@@ -51,6 +53,9 @@ export default async function EventDetailPage({
   };
   const canEditEventAccess = checkCanEditEvent(membership?.role, accessContext);
   const canDeleteEventAccess = checkCanDeleteEvent(membership?.role, accessContext);
+  const canDeleteBracketAccess = membership
+    ? checkCanDeleteBracket(membership.role, isPlatformAdmin)
+    : false;
 
   return (
     <div className="space-y-6">
@@ -209,22 +214,44 @@ export default async function EventDetailPage({
                     {section.brackets.map((bracket) => {
                       const roster = rosterByBracketId.get(bracket.id);
                       return (
-                        <Link
+                        <div
                           key={bracket.id}
-                          href={`/fixtures/${bracket.id}`}
-                          className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border border-gray-100 rounded-lg p-3 text-sm hover:border-boxing/30 hover:bg-gray-50"
+                          className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border border-gray-100 rounded-lg p-3 text-sm hover:border-boxing/30 hover:bg-gray-50"
                         >
-                          <div className="min-w-0">
+                          <Link href={`/fixtures/${bracket.id}`} className="min-w-0 flex-1">
                             <p className="font-medium text-navy">{bracket.name}</p>
                             <p className="text-gray-500 text-xs mt-0.5">
                               {roster?.fighters.length ?? 0} fighter
                               {(roster?.fighters.length ?? 0) === 1 ? "" : "s"}
                             </p>
+                          </Link>
+                          <div className="flex items-center gap-2 self-start sm:self-center">
+                            <span className="badge bg-gray-100 text-gray-700 capitalize">
+                              {bracket.status}
+                            </span>
+                            <IconAction
+                              href={`/fixtures/${bracket.id}`}
+                              label="View bracket"
+                              icon="trophy"
+                              variant="ghost"
+                            />
+                            {canEditEventAccess && (
+                              <IconAction
+                                href={`/fixtures/${bracket.id}/edit`}
+                                label="Edit fixture"
+                                icon="pencil"
+                                variant="ghost"
+                              />
+                            )}
+                            {canDeleteBracketAccess && (
+                              <DeleteFixtureButton
+                                bracketId={bracket.id}
+                                bracketName={bracket.name}
+                                compact
+                              />
+                            )}
                           </div>
-                          <span className="badge bg-gray-100 text-gray-700 self-start capitalize">
-                            {bracket.status}
-                          </span>
-                        </Link>
+                        </div>
                       );
                     })}
                   </div>
@@ -233,6 +260,16 @@ export default async function EventDetailPage({
             </div>
           )}
         </div>
+
+        {canDeleteEventAccess ? (
+          <div className="border-t border-red-100 pt-6 space-y-3">
+            <h2 className="font-semibold text-navy">Danger zone</h2>
+            <p className="text-sm text-gray-500">
+              Deleting this event removes all brackets, fixtures, and bout results linked to it.
+            </p>
+            <DeleteEventButton eventId={event.id} eventName={event.name} />
+          </div>
+        ) : null}
       </div>
     </div>
   );
