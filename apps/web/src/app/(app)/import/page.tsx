@@ -48,6 +48,7 @@ export default function ImportPage() {
   const supabase = createClient();
   const [memberships, setMemberships] = useState<ClubMember[]>([]);
   const [selectedClubId, setSelectedClubId] = useState("");
+  const [csvPaste, setCsvPaste] = useState("");
   const [result, setResult] = useState<{
     imported: number;
     errors: string[];
@@ -60,6 +61,9 @@ export default function ImportPage() {
     () => memberships.filter((entry) => canImportFighters(entry.role)),
     [memberships]
   );
+
+  const importDisabled =
+    loading || !selectedClubId || importableMemberships.length === 0;
 
   useEffect(() => {
     async function load() {
@@ -86,9 +90,8 @@ export default function ImportPage() {
     setError("");
   }
 
-  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file || !selectedClubId) return;
+  async function runImport(text: string) {
+    if (!selectedClubId) return;
 
     if (importableMemberships.length === 0) {
       setError("You do not have permission to import fighters for any club.");
@@ -99,13 +102,11 @@ export default function ImportPage() {
     setError("");
     setResult(null);
 
-    const text = await file.text();
     const rows = parseCSV(text);
 
     if (rows.length === 0) {
       setError("CSV is empty or missing a header row.");
       setLoading(false);
-      e.target.value = "";
       return;
     }
 
@@ -121,7 +122,32 @@ export default function ImportPage() {
       setError(err instanceof Error ? err.message : "Import failed");
     }
     setLoading(false);
+  }
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const text = await file.text();
+    await runImport(text);
     e.target.value = "";
+  }
+
+  async function handlePasteImport() {
+    if (!csvPaste.trim()) {
+      setError("Paste CSV content before importing.");
+      return;
+    }
+
+    await runImport(csvPaste);
+  }
+
+  function handlePasteExample() {
+    setCsvPaste(`name,birth_year,gender,weight_kg,club_name
+Rahul Sharma,2008,male,58,Mumbai Warriors
+Amit Patel,2009,male,59,`);
+    setResult(null);
+    setError("");
   }
 
   return (
@@ -143,7 +169,7 @@ export default function ImportPage() {
         ) : null}
 
         <p className="text-sm text-gray-500">
-          Upload a CSV with columns:{" "}
+          Upload a file or paste CSV with columns:{" "}
           <code className="bg-gray-100 px-1 rounded">
             name, birth_year, gender, weight_kg
           </code>{" "}
@@ -164,13 +190,62 @@ export default function ImportPage() {
           to use the default club above. Names must match your clubs exactly.
         </p>
 
-        <input
-          type="file"
-          accept=".csv"
-          onChange={handleFile}
-          disabled={loading || !selectedClubId || importableMemberships.length === 0}
-          className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-boxing file:text-white file:cursor-pointer disabled:opacity-50"
-        />
+        <div>
+          <label className="block text-sm font-medium mb-1">Upload CSV file</label>
+          <input
+            type="file"
+            accept=".csv"
+            onChange={handleFile}
+            disabled={importDisabled}
+            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-boxing file:text-white file:cursor-pointer disabled:opacity-50"
+          />
+        </div>
+
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center" aria-hidden="true">
+            <div className="w-full border-t border-gray-200" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-white px-2 text-gray-400">Or paste CSV</span>
+          </div>
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <label htmlFor="csv-paste" className="block text-sm font-medium">
+              Paste CSV content
+            </label>
+            <button
+              type="button"
+              onClick={handlePasteExample}
+              disabled={importDisabled}
+              className="text-xs text-boxing hover:underline disabled:opacity-50"
+            >
+              Use example
+            </button>
+          </div>
+          <textarea
+            id="csv-paste"
+            rows={8}
+            value={csvPaste}
+            onChange={(e) => {
+              setCsvPaste(e.target.value);
+              setResult(null);
+              setError("");
+            }}
+            placeholder={`name,birth_year,gender,weight_kg,club_name\nRahul Sharma,2008,male,58,Mumbai Warriors\nAmit Patel,2009,male,59,`}
+            disabled={importDisabled}
+            className="input-field font-mono text-xs min-h-[10rem] resize-y"
+          />
+          <button
+            type="button"
+            onClick={handlePasteImport}
+            disabled={importDisabled || !csvPaste.trim()}
+            className="btn-primary mt-3"
+          >
+            Import pasted CSV
+          </button>
+        </div>
 
         {loading && <p className="text-sm text-gray-500">Importing...</p>}
         {error && (
