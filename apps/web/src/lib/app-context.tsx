@@ -29,6 +29,8 @@ export async function getAppContext() {
     user,
     profile,
     membership,
+    memberships: clubs,
+    clubIds: clubs.map((entry) => entry.club_id),
     isPlatformAdmin: profile?.is_platform_admin ?? false,
     clubId: membership?.club_id ?? null,
   };

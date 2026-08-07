@@ -1,8 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { importFightersFromCSV } from "@boutforge/api";
+import { getUserClubs, importFightersFromCSV } from "@boutforge/api";
+import { canImportFighters } from "@boutforge/shared";
+import type { ClubMember } from "@boutforge/shared";
+import { ClubSelector } from "@/components/ClubSelector";
 
 function parseCSV(text: string): Array<{
   name: string;
@@ -32,16 +35,50 @@ function parseCSV(text: string): Array<{
 
 export default function ImportPage() {
   const supabase = createClient();
+  const [memberships, setMemberships] = useState<ClubMember[]>([]);
+  const [selectedClubId, setSelectedClubId] = useState("");
+  const [canImport, setCanImport] = useState(false);
   const [result, setResult] = useState<{
     imported: number;
     errors: string[];
+    clubName: string;
   } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  useEffect(() => {
+    async function load() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const clubs = await getUserClubs(supabase, user.id);
+      setMemberships(clubs);
+      if (clubs.length > 0) {
+        setSelectedClubId(clubs[0].club_id);
+        setCanImport(canImportFighters(clubs[0].role));
+      }
+    }
+    load();
+  }, [supabase]);
+
+  function handleClubChange(clubId: string) {
+    setSelectedClubId(clubId);
+    const membership = memberships.find((entry) => entry.club_id === clubId);
+    setCanImport(membership ? canImportFighters(membership.role) : false);
+    setResult(null);
+    setError("");
+  }
+
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !selectedClubId) return;
+
+    if (!canImport) {
+      setError("You do not have permission to import fighters for this club.");
+      return;
+    }
 
     setLoading(true);
     setError("");
@@ -49,37 +86,18 @@ export default function ImportPage() {
 
     const text = await file.text();
     const rows = parseCSV(text);
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      setError("Not authenticated");
-      setLoading(false);
-      return;
-    }
-
-    const { data: membership } = await supabase
-      .from("club_members")
-      .select("club_id")
-      .eq("user_id", user.id)
-      .single();
-
-    if (!membership) {
-      setError("No club found");
-      setLoading(false);
-      return;
-    }
+    const clubName =
+      memberships.find((entry) => entry.club_id === selectedClubId)?.club?.name ??
+      "Selected club";
 
     try {
-      const res = await importFightersFromCSV(
-        supabase,
-        membership.club_id,
-        rows
-      );
-      setResult(res);
+      const res = await importFightersFromCSV(supabase, selectedClubId, rows);
+      setResult({ ...res, clubName });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Import failed");
     }
     setLoading(false);
+    e.target.value = "";
   }
 
   return (
@@ -87,6 +105,19 @@ export default function ImportPage() {
       <h1 className="text-2xl font-bold text-navy">Import Fighters</h1>
 
       <div className="card space-y-4">
+        <ClubSelector
+          memberships={memberships}
+          selectedClubId={selectedClubId}
+          onChange={handleClubChange}
+          description="Fighters will be added to this club's roster with auto-assigned age and weight categories."
+        />
+
+        {!canImport && selectedClubId ? (
+          <div className="bg-yellow-50 text-yellow-800 px-4 py-3 rounded-lg text-sm">
+            Your role for this club does not allow CSV import.
+          </div>
+        ) : null}
+
         <p className="text-sm text-gray-500">
           Upload a CSV file with columns:{" "}
           <code className="bg-gray-100 px-1 rounded">name, dob, gender, weight_kg</code>
@@ -102,8 +133,8 @@ export default function ImportPage() {
           type="file"
           accept=".csv"
           onChange={handleFile}
-          disabled={loading}
-          className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-boxing file:text-white file:cursor-pointer"
+          disabled={loading || !selectedClubId || !canImport}
+          className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-boxing file:text-white file:cursor-pointer disabled:opacity-50"
         />
 
         {loading && <p className="text-sm text-gray-500">Importing...</p>}
@@ -115,13 +146,14 @@ export default function ImportPage() {
         {result && (
           <div className="space-y-2">
             <p className="text-green-700 bg-green-50 px-4 py-3 rounded-lg text-sm">
-              Imported {result.imported} fighters successfully.
+              Imported {result.imported} fighter{result.imported === 1 ? "" : "s"} to{" "}
+              <strong>{result.clubName}</strong>.
             </p>
             {result.errors.length > 0 && (
               <div className="bg-yellow-50 text-yellow-800 px-4 py-3 rounded-lg text-sm">
                 <p className="font-medium mb-1">Errors:</p>
-                {result.errors.map((e, i) => (
-                  <p key={i}>{e}</p>
+                {result.errors.map((entry, i) => (
+                  <p key={i}>{entry}</p>
                 ))}
               </div>
             )}

@@ -8,10 +8,10 @@ import {
 import { getAppContext } from "@/lib/app-context";
 
 export default async function FightersPage() {
-  const { supabase, clubId } = await getAppContext();
-  if (!clubId) return <p>No club</p>;
+  const { supabase, clubIds } = await getAppContext();
+  if (clubIds.length === 0) return <p>No club</p>;
 
-  const fighters = await getFighters(supabase, clubId);
+  const fighters = await getFighters(supabase, clubIds);
 
   return (
     <div className="space-y-6">

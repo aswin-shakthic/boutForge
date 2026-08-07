@@ -59,6 +59,10 @@ export function canManageFighters(role: UserRole): boolean {
   return hasPermission(role, "crud_fighters");
 }
 
+export function canImportFighters(role: UserRole): boolean {
+  return hasPermission(role, "import_fighters");
+}
+
 export function canRecordResults(role: UserRole): boolean {
   return hasPermission(role, "record_results");
 }

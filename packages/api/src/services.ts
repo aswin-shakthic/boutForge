@@ -361,7 +361,7 @@ export async function createFighter(
       weight_class_id: weightClass?.id ?? null,
       notes: input.notes ?? null,
     })
-    .select("*, age_category:age_categories(*), weight_class:weight_classes(*)")
+    .select("*, age_category:age_categories(*), weight_class:weight_classes(*), club:clubs(id, name)")
     .single();
   if (error) throw error;
   return data as Fighter;
@@ -725,7 +725,7 @@ export async function importFightersFromCSV(
   supabase: SupabaseClient,
   clubId: string,
   rows: Array<{ name: string; dob: string; gender: string; weight_kg: number }>
-): Promise<{ imported: number; errors: string[] }> {
+): Promise<{ imported: number; errors: string[]; club_id: string }> {
   const ageCategories = await getAgeCategories(supabase);
   const weightClasses = await getWeightClasses(supabase);
   const errors: string[] = [];
@@ -736,10 +736,20 @@ export async function importFightersFromCSV(
     const parts = row.name.trim().split(/\s+/);
     const firstName = parts[0] ?? "";
     const lastName = parts.slice(1).join(" ") || firstName;
-    const gender = row.gender.toLowerCase() as "male" | "female";
+    const gender = row.gender.trim().toLowerCase();
 
     if (!firstName || !row.dob || !gender || !row.weight_kg) {
       errors.push(`Row ${i + 1}: Missing required fields`);
+      continue;
+    }
+
+    if (gender !== "male" && gender !== "female") {
+      errors.push(`Row ${i + 1}: Gender must be male or female`);
+      continue;
+    }
+
+    if (!Number.isFinite(row.weight_kg) || row.weight_kg <= 0) {
+      errors.push(`Row ${i + 1}: Weight must be a positive number`);
       continue;
     }
 
@@ -766,7 +776,7 @@ export async function importFightersFromCSV(
     }
   }
 
-  return { imported, errors };
+  return { imported, errors, club_id: clubId };
 }
 
 export async function getDashboardStats(

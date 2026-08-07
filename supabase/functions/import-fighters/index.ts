@@ -42,10 +42,20 @@ Deno.serve(async (req) => {
       const parts = (row.name ?? "").trim().split(/\s+/);
       const firstName = parts[0] ?? "";
       const lastName = parts.slice(1).join(" ") || firstName;
-      const gender = (row.gender ?? "").toLowerCase();
+      const gender = (row.gender ?? "").trim().toLowerCase();
 
       if (!firstName || !row.dob || !gender || !row.weight_kg) {
         errors.push(`Row ${i + 1}: Missing required fields`);
+        continue;
+      }
+
+      if (gender !== "male" && gender !== "female") {
+        errors.push(`Row ${i + 1}: Gender must be male or female`);
+        continue;
+      }
+
+      if (!Number.isFinite(Number(row.weight_kg)) || Number(row.weight_kg) <= 0) {
+        errors.push(`Row ${i + 1}: Weight must be a positive number`);
         continue;
       }
 

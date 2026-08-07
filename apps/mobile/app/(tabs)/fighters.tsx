@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { router } from "expo-router";
 import { supabase } from "@/lib/supabase";
-import { getFighters } from "@boutforge/api";
+import { getFighters, getUserClubs } from "@boutforge/api";
 import {
   fighterFullName,
   fighterRecord,
@@ -25,13 +25,10 @@ export default function FightersScreen() {
   async function load() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    const { data: membership } = await supabase
-      .from("club_members")
-      .select("club_id")
-      .eq("user_id", user.id)
-      .single();
-    if (!membership) return;
-    const data = await getFighters(supabase, membership.club_id);
+    const memberships = await getUserClubs(supabase, user.id);
+    const clubIds = memberships.map((entry) => entry.club_id);
+    if (clubIds.length === 0) return;
+    const data = await getFighters(supabase, clubIds);
     setFighters(data);
   }
 
